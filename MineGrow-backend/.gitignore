@@ -1,0 +1,21 @@
+# Compiled output
+/dist
+/node_modules
+
+# Local env files
+.env
+.env.production
+.env.development
+
+# IDEs and editors
+/.idea
+/.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# System Files
+Thumbs.db
+Desktop.ini
