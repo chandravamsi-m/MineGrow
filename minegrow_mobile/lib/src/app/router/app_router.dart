@@ -14,6 +14,7 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/wallet/presentation/wallet_screen.dart';
 import '../../features/withdrawal/presentation/withdrawal_screen.dart';
+import '../../shared/data/app_models.dart';
 
 abstract final class AppRoutes {
   static const splash = '/';
@@ -63,7 +64,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.investmentDetails,
         name: 'investment-details',
-        builder: (context, state) => const InvestmentDetailsScreen(),
+        builder: (context, state) => InvestmentDetailsScreen(
+          initialPlan: state.extra is InvestmentPlan
+              ? state.extra! as InvestmentPlan
+              : null,
+        ),
       ),
       GoRoute(
         path: AppRoutes.wallet,

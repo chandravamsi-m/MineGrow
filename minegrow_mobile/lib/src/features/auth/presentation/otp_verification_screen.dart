@@ -1,31 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../data/auth_repository.dart';
 
-class OtpVerificationScreen extends StatefulWidget {
+class OtpVerificationScreen extends ConsumerStatefulWidget {
   const OtpVerificationScreen({super.key});
 
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  ConsumerState<OtpVerificationScreen> createState() =>
+      _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
+  final _otpController = TextEditingController();
   String? _errorText;
+  bool _isSubmitting = false;
 
-  void _verify() {
+  @override
+  void dispose() {
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _verify() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6) {
+      setState(() {
+        _errorText = 'Enter the 6 digit OTP sent to your mobile number.';
+      });
+      return;
+    }
+
     setState(() {
       _errorText = null;
+      _isSubmitting = true;
     });
 
-    context.go(AppRoutes.dashboard);
+    try {
+      final auth = ref.read(authRepositoryProvider);
+      final mobile = auth.readSavedMobile();
+      if (mobile == null || mobile.isEmpty) {
+        throw const ApiException(message: 'Mobile number was not found.');
+      }
+
+      await auth.verifyOtp(
+        mobile: mobile,
+        otp: otp,
+        purpose: auth.readSavedOtpPurpose(),
+      );
+
+      if (mounted) {
+        context.go(AppRoutes.dashboard);
+      }
+    } on ApiException catch (error) {
+      setState(() => _errorText = error.message);
+    } catch (_) {
+      setState(() {
+        _errorText = 'Could not verify OTP. Check your connection and retry.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const otp = ['2', '4', '6', '8', '1', '9'];
+    final auth = ref.watch(authRepositoryProvider);
+    final mobile = auth.readSavedMobile() ?? '+91 9876543210';
 
     return MGScaffold(
       appBar: const MGAppBar(
@@ -46,32 +94,13 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '+91 9876543210',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text(mobile, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 34),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (final digit in otp)
-                Container(
-                  width: context.metrics.otpWidth,
-                  height: context.metrics.otpHeight,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: context.tokens.surface,
-                    borderRadius: BorderRadius.circular(
-                      context.metrics.radiusSmall,
-                    ),
-                    border: Border.all(color: context.tokens.border),
-                  ),
-                  child: Text(
-                    digit,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-            ],
+          MGTextField(
+            hintText: '6 digit OTP',
+            keyboardType: TextInputType.number,
+            controller: _otpController,
+            prefix: const Icon(Icons.lock_outline, size: 18),
           ),
           const SizedBox(height: 24),
           Text(
@@ -89,7 +118,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
           ],
           const SizedBox(height: 42),
-          MGGradientButton(label: 'Verify OTP', onPressed: _verify),
+          MGGradientButton(
+            label: _isSubmitting ? 'Verifying...' : 'Verify OTP',
+            onPressed: _isSubmitting ? null : _verify,
+          ),
           const SizedBox(height: 16),
           TextButton(
             onPressed: () {

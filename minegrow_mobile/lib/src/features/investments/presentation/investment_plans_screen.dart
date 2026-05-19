@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
-import '../../../shared/data/mock_data.dart';
+import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../data/investments_repository.dart';
 
-class InvestmentPlansScreen extends StatelessWidget {
+class InvestmentPlansScreen extends ConsumerWidget {
   const InvestmentPlansScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final isLoading = mockIsLoading('investmentPlans');
-    final hasLoadError = mockHasLoadError('investmentPlans');
-    final plans = investmentPlans;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plansState = ref.watch(investmentPlansProvider);
 
     return MGScaffold(
       appBar: const MGAppBar(title: 'Investment Plans'),
@@ -30,31 +30,38 @@ class InvestmentPlansScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            if (isLoading)
-              const MGLoadingList()
-            else if (hasLoadError)
-              MGFriendlyState(
+            plansState.when(
+              loading: () => const MGLoadingList(),
+              error: (error, stackTrace) => MGFriendlyState(
                 icon: Icons.cloud_off_outlined,
                 title: 'Plans could not load',
                 message:
                     'Check your connection and try again. Your wallet balance is safe.',
                 actionLabel: 'Retry',
-                onAction: () {},
-              )
-            else if (plans.isEmpty)
-              MGFriendlyState(
-                icon: Icons.landscape_outlined,
-                title: 'No plans available',
-                message:
-                    'Investment plans will appear here as soon as they are opened.',
-                actionLabel: 'Refresh',
-                onAction: () {},
-              )
-            else
-              for (final plan in plans) ...[
-                _PlanCard(plan: plan),
-                const SizedBox(height: 12),
-              ],
+                onAction: () => ref.invalidate(investmentPlansProvider),
+              ),
+              data: (plans) {
+                if (plans.isEmpty) {
+                  return MGFriendlyState(
+                    icon: Icons.landscape_outlined,
+                    title: 'No plans available',
+                    message:
+                        'Investment plans will appear here as soon as they are opened.',
+                    actionLabel: 'Refresh',
+                    onAction: () => ref.invalidate(investmentPlansProvider),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    for (final plan in plans) ...[
+                      _PlanCard(plan: plan),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -70,7 +77,7 @@ class _PlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MGCard(
-      onTap: () => context.go(AppRoutes.investmentDetails),
+      onTap: () => context.go(AppRoutes.investmentDetails, extra: plan),
       child: Column(
         children: [
           Row(
@@ -134,7 +141,8 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: 14),
           MGGradientButton(
             label: 'Invest Now',
-            onPressed: () => context.go(AppRoutes.investmentDetails),
+            onPressed: () =>
+                context.go(AppRoutes.investmentDetails, extra: plan),
           ),
         ],
       ),

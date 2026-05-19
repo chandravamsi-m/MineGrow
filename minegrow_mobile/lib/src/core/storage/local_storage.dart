@@ -20,6 +20,14 @@ class LocalStorage {
     return _preferences.setString(key, value);
   }
 
+  bool readBool(String key, {bool defaultValue = false}) {
+    return _preferences.getBool(key) ?? defaultValue;
+  }
+
+  Future<bool> writeBool(String key, bool value) {
+    return _preferences.setBool(key, value);
+  }
+
   Future<bool> remove(String key) {
     return _preferences.remove(key);
   }
