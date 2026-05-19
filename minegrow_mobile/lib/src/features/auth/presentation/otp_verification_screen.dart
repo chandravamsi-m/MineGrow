@@ -48,14 +48,18 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         throw const ApiException(message: 'Mobile number was not found.');
       }
 
-      await auth.verifyOtp(
+      final session = await auth.verifyOtp(
         mobile: mobile,
         otp: otp,
         purpose: auth.readSavedOtpPurpose(),
       );
 
       if (mounted) {
-        context.go(AppRoutes.dashboard);
+        if (session.isNewUser) {
+          context.go(AppRoutes.onboarding);
+        } else {
+          context.go(AppRoutes.dashboard);
+        }
       }
     } on ApiException catch (error) {
       setState(() => _errorText = error.message);

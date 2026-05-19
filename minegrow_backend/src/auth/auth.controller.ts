@@ -1,17 +1,12 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Headers, HttpCode, HttpStatus, UseGuards, UnauthorizedException, BadRequestException, Request } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, SendOtpDto, VerifyOtpDto, ResetPasswordDto, AdminLoginDto } from './dto/auth.dto';
+import { SendOtpDto, VerifyOtpDto, AdminLoginDto, OnboardStep1Dto } from './dto/auth.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
 
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
@@ -25,10 +20,12 @@ export class AuthController {
     return this.authService.verifyOtp(dto);
   }
 
-  @Post('login')
+  @Post('onboard/step1')
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async onboardStep1(@Body() dto: OnboardStep1Dto, @Request() req: any) {
+    return this.authService.onboardStep1(req.user.id, dto);
   }
 
   @Post('refresh')
@@ -41,27 +38,13 @@ export class AuthController {
   }
 
   @Post('logout')
+  @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async logout() {
     // In stateless JWT architectures, token invalidation occurs client side.
     // We return standard acknowledgement.
     return { message: 'Logged out successfully' };
-  }
-
-  @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: SendOtpDto) {
-    if (dto.purpose !== 'forgot_password') {
-      throw new BadRequestException('Invalid purpose for forgot-password OTP invocation');
-    }
-    return this.authService.sendOtp(dto);
-  }
-
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto);
   }
 
   @Post('admin/login')

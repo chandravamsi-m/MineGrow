@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, InternalServerError
 import { SupabaseClientService } from '../config/supabase.client';
 import { UploadsService } from '../uploads/uploads.service';
 import * as bcrypt from 'bcryptjs';
-import { UpdateProfileDto, ChangePasswordDto, AddBankAccountDto, RegisterDeviceTokenDto } from './dto/users.dto';
+import { UpdateProfileDto, AddBankAccountDto, RegisterDeviceTokenDto } from './dto/users.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
 @Injectable()
@@ -18,7 +18,7 @@ export class UsersService {
     const supabase = this.supabaseService.getClient();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, full_name, mobile, email, status, kyc_verified, created_at')
+      .select('id, full_name, mobile, email, status, kyc_verified, address, created_at')
       .eq('id', userId)
       .single();
 
@@ -34,6 +34,7 @@ export class UsersService {
 
     if (dto.fullName) updateData.full_name = dto.fullName;
     if (dto.email) updateData.email = dto.email;
+    if (dto.address) updateData.address = dto.address;
 
     if (Object.keys(updateData).length === 0) {
       throw new BadRequestException('No fields to update');
@@ -45,7 +46,7 @@ export class UsersService {
       .from('users')
       .update(updateData)
       .eq('id', userId)
-      .select('id, full_name, mobile, email, status, kyc_verified, updated_at')
+      .select('id, full_name, mobile, email, status, kyc_verified, address, updated_at')
       .single();
 
     if (error || !user) {
@@ -54,44 +55,6 @@ export class UsersService {
     }
 
     return user;
-  }
-
-  async changePassword(userId: number, dto: ChangePasswordDto) {
-    const supabase = this.supabaseService.getClient();
-
-    // 1. Fetch user password hash
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('password_hash')
-      .eq('id', userId)
-      .single();
-
-    if (error || !user) {
-      throw new NotFoundException('User profile not found');
-    }
-
-    // 2. Validate current password
-    const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.password_hash);
-    if (!isPasswordValid) {
-      throw new BadRequestException('Current password provided is incorrect');
-    }
-
-    // 3. Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const newPasswordHash = await bcrypt.hash(dto.newPassword, salt);
-
-    // 4. Update
-    const { data: approved, error: updateError } = await supabase
-      .from('users')
-      .update({ password_hash: newPasswordHash, updated_at: getISTDateTimeString() })
-      .eq('id', userId);
-
-    if (updateError) {
-      this.logger.error('Failed to change password:', updateError);
-      throw new InternalServerErrorException('Error updating account password');
-    }
-
-    return { message: 'Password updated successfully' };
   }
 
   async uploadKyc(userId: number, file: any, docType: 'aadhaar' | 'pan' | 'passport' | 'driving_license') {

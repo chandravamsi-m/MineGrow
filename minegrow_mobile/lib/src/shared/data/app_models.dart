@@ -277,6 +277,7 @@ class UserProfile {
     required this.fullName,
     required this.mobile,
     this.email,
+    this.address,
     required this.status,
     required this.kycVerified,
   });
@@ -285,6 +286,7 @@ class UserProfile {
   final String fullName;
   final String mobile;
   final String? email;
+  final String? address;
   final String status;
   final bool kycVerified;
 
@@ -295,6 +297,7 @@ class UserProfile {
       fullName: _stringValue(map['full_name'] ?? map['fullName']),
       mobile: _stringValue(map['mobile']),
       email: map['email']?.toString(),
+      address: map['address']?.toString(),
       status: _stringValue(map['status'], fallback: 'active'),
       kycVerified: map['kyc_verified'] == true,
     );
@@ -306,11 +309,13 @@ class AuthSession {
     required this.accessToken,
     required this.refreshToken,
     this.user,
+    this.isNewUser = false,
   });
 
   final String accessToken;
   final String refreshToken;
   final UserProfile? user;
+  final bool isNewUser;
 
   factory AuthSession.fromJson(Object? json) {
     final map = json as Map<String, dynamic>;
@@ -318,6 +323,7 @@ class AuthSession {
       accessToken: _stringValue(map['accessToken']),
       refreshToken: _stringValue(map['refreshToken']),
       user: map['user'] == null ? null : UserProfile.fromJson(map['user']),
+      isNewUser: map['isNewUser'] == true,
     );
   }
 }
