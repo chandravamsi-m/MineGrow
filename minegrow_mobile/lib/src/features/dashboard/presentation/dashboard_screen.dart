@@ -1,21 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
-import '../../../shared/data/mock_data.dart';
+import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../investments/data/investments_repository.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../wallet/data/wallet_repository.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final hasActivePlan = mockHasData('activePlan');
+  Widget build(BuildContext context, WidgetRef ref) {
+    final walletState = ref.watch(walletSummaryProvider);
+    final profileState = ref.watch(profileProvider);
+    final investmentsState = ref.watch(ownInvestmentsProvider);
+    final wallet = walletState.maybeWhen(
+      data: (value) => value,
+      orElse: WalletSummary.empty,
+    );
+    final profileName = profileState.maybeWhen(
+      data: (value) => value.fullName,
+      orElse: () => 'Investor',
+    );
+    final investments = investmentsState.maybeWhen(
+      data: (value) => value,
+      orElse: () => const <InvestmentRecord>[],
+    );
+    final activePlans = investments.where((item) => item.isActive).length;
+    final totalInvested = investments.fold<num>(
+      0,
+      (sum, item) => sum + item.amount,
+    );
+    final hasActivePlan = activePlans > 0 || wallet.totalBalance > 0;
 
     return MGScaffold(
       appBar: MGAppBar(
-        title: 'Hello, Ramesh 👋',
+        title: 'Hello, $profileName',
         action: IconButton(
           icon: const Icon(Icons.notifications_none),
           onPressed: () => context.go(AppRoutes.notifications),
@@ -28,43 +52,57 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MGCard(
-              gradient: context.tokens.walletGradient,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Total Wallet Balance',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: context.tokens.textSecondary),
+            walletState.when(
+              loading: () => const MGLoadingList(itemCount: 1),
+              error: (error, stackTrace) => MGFriendlyState(
+                icon: Icons.cloud_off_outlined,
+                title: 'Dashboard could not refresh',
+                message:
+                    'Login again or check your connection to load wallet totals.',
+                actionLabel: 'Retry',
+                onAction: () => ref.invalidate(walletSummaryProvider),
+              ),
+              data: (wallet) => MGCard(
+                gradient: context.tokens.walletGradient,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Total Wallet Balance',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: context.tokens.textSecondary),
+                          ),
                         ),
-                      ),
-                      const Icon(Icons.visibility_outlined, size: 18),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '₹ 45,750.00',
-                    style: Theme.of(context).textTheme.displaySmall,
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _BalanceMetric('ROI Wallet', '₹ 15,750.00'),
-                      ),
-                      Expanded(
-                        child: _BalanceMetric(
-                          'Principal Wallet',
-                          '₹ 30,000.00',
+                        const Icon(Icons.visibility_outlined, size: 18),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      formatCurrency(wallet.totalBalance),
+                      style: Theme.of(context).textTheme.displaySmall,
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _BalanceMetric(
+                            'ROI Wallet',
+                            formatCurrency(wallet.roiBalance),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        Expanded(
+                          child: _BalanceMetric(
+                            'Principal Wallet',
+                            formatCurrency(wallet.principalBalance),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 14),
@@ -75,26 +113,26 @@ class DashboardScreen extends StatelessWidget {
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
               childAspectRatio: 2.3,
-              children: const [
+              children: [
                 MGStatCard(
                   icon: Icons.account_balance_wallet_outlined,
                   label: 'Total Investment',
-                  value: '₹ 1,00,000.00',
+                  value: formatCurrency(totalInvested),
                 ),
                 MGStatCard(
                   icon: Icons.trending_up,
                   label: 'Total Earnings',
-                  value: '₹ 25,750.00',
+                  value: formatCurrency(wallet.totalRoiEarned),
                 ),
                 MGStatCard(
                   icon: Icons.savings_outlined,
-                  label: 'Daily ROI',
-                  value: '₹ 1,000.00',
+                  label: 'ROI Wallet',
+                  value: formatCurrency(wallet.roiBalance),
                 ),
                 MGStatCard(
                   icon: Icons.layers_outlined,
                   label: 'Active Plans',
-                  value: '2',
+                  value: activePlans.toString(),
                 ),
               ],
             ),
@@ -113,7 +151,7 @@ class DashboardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '90 Days Lock',
+                            'Track active plans from Investments',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: context.tokens.textSecondary),
                           ),
@@ -121,7 +159,7 @@ class DashboardScreen extends StatelessWidget {
                           const MGProgressBar(value: 0.5),
                           const SizedBox(height: 10),
                           Text(
-                            '45 Days Completed',
+                            'Synced from backend wallet data',
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: context.tokens.textSecondary),
                           ),

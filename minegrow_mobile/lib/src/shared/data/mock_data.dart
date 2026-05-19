@@ -1,25 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/app_assets.dart';
+import 'app_models.dart';
 import '../widgets/mg_widgets.dart';
-
-class InvestmentPlan {
-  const InvestmentPlan({
-    required this.name,
-    required this.range,
-    required this.dailyRoi,
-    required this.lockPeriod,
-    required this.icon,
-    required this.assetPath,
-  });
-
-  final String name;
-  final String range;
-  final String dailyRoi;
-  final String lockPeriod;
-  final IconData icon;
-  final String assetPath;
-}
 
 class HistoryEntry {
   const HistoryEntry({
@@ -55,28 +37,40 @@ class NotificationItem {
 
 const investmentPlans = [
   InvestmentPlan(
+    id: 1,
     name: 'Starter Plan',
-    range: '₹1,000 - ₹10,000',
-    dailyRoi: '1%',
-    lockPeriod: '90 Days Lock',
+    minAmount: 1000,
+    maxAmount: 10000,
+    dailyRoiPct: 1,
+    lockDays: 90,
+    roiWithdrawDays: 30,
+    isActive: true,
     icon: Icons.landscape_outlined,
-    assetPath: AppAssets.planStarterOre,
+    assetPath: 'assets/images/minegrow/plan_starter_ore.png',
   ),
   InvestmentPlan(
+    id: 2,
     name: 'Silver Plan',
-    range: '₹10,001 - ₹50,000',
-    dailyRoi: '1.2%',
-    lockPeriod: '90 Days Lock',
+    minAmount: 10001,
+    maxAmount: 50000,
+    dailyRoiPct: 1.2,
+    lockDays: 90,
+    roiWithdrawDays: 30,
+    isActive: true,
     icon: Icons.account_balance_outlined,
-    assetPath: AppAssets.planSilverOre,
+    assetPath: 'assets/images/minegrow/plan_silver_ore.png',
   ),
   InvestmentPlan(
+    id: 3,
     name: 'Gold Plan',
-    range: '₹50,001 - ₹5,00,000',
-    dailyRoi: '1.5%',
-    lockPeriod: '90 Days Lock',
+    minAmount: 50001,
+    maxAmount: 500000,
+    dailyRoiPct: 1.5,
+    lockDays: 90,
+    roiWithdrawDays: 30,
+    isActive: true,
     icon: Icons.diamond_outlined,
-    assetPath: AppAssets.planGoldOre,
+    assetPath: 'assets/images/minegrow/plan_gold_ore.png',
   ),
 ];
 

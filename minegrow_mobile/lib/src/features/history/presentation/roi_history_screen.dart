@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/constants/app_assets.dart';
-import '../../../shared/data/mock_data.dart';
+import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../wallet/data/wallet_repository.dart';
 
-class RoiHistoryScreen extends StatelessWidget {
+class RoiHistoryScreen extends ConsumerWidget {
   const RoiHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final isLoading = mockIsLoading('roiHistory');
-    final hasLoadError = mockHasLoadError('roiHistory');
-    final history = roiHistory;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyState = ref.watch(roiHistoryProvider);
 
     return MGScaffold(
       appBar: MGAppBar(
@@ -43,9 +43,21 @@ class RoiHistoryScreen extends StatelessWidget {
                               ?.copyWith(color: context.tokens.textSecondary),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          '₹ 25,750.00',
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        historyState.maybeWhen(
+                          data: (history) {
+                            final total = history.fold<num>(
+                              0,
+                              (sum, item) => sum + item.amount,
+                            );
+                            return Text(
+                              formatCurrency(total),
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            );
+                          },
+                          orElse: () => Text(
+                            formatCurrency(0),
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
                         ),
                       ],
                     ),
@@ -65,26 +77,33 @@ class RoiHistoryScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            if (isLoading)
-              const MGLoadingList()
-            else if (hasLoadError)
-              MGFriendlyState(
+            historyState.when(
+              loading: () => const MGLoadingList(),
+              error: (error, stackTrace) => MGFriendlyState(
                 icon: Icons.sync_problem_outlined,
                 title: 'ROI history is unavailable',
                 message:
                     'We could not fetch your latest credits. Try again in a moment.',
                 actionLabel: 'Retry',
-                onAction: () {},
-              )
-            else if (history.isEmpty)
-              MGFriendlyState(
-                icon: Icons.history_toggle_off_outlined,
-                title: 'No ROI credits yet',
-                message:
-                    'Your daily ROI entries will show here once your plan starts earning.',
-              )
-            else
-              for (final item in history) _HistoryRow(item: item),
+                onAction: () => ref.invalidate(roiHistoryProvider),
+              ),
+              data: (history) {
+                if (history.isEmpty) {
+                  return const MGFriendlyState(
+                    icon: Icons.history_toggle_off_outlined,
+                    title: 'No ROI credits yet',
+                    message:
+                        'Your daily ROI entries will show here once your plan starts earning.',
+                  );
+                }
+
+                return Column(
+                  children: [
+                    for (final item in history) _HistoryRow(item: item),
+                  ],
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -95,7 +114,7 @@ class RoiHistoryScreen extends StatelessWidget {
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.item});
 
-  final HistoryEntry item;
+  final RoiHistoryItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -112,11 +131,11 @@ class _HistoryRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.title,
+                    item.creditedDate,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   Text(
-                    item.subtitle,
+                    'Investment ID : #INV${item.investmentId}',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: context.tokens.textSecondary,
                     ),
@@ -125,7 +144,7 @@ class _HistoryRow extends StatelessWidget {
               ),
             ),
             Text(
-              item.amount,
+              '+${formatCurrency(item.amount)}',
               style: Theme.of(
                 context,
               ).textTheme.labelLarge?.copyWith(color: context.tokens.success),

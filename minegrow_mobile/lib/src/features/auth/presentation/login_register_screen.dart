@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../data/auth_repository.dart';
 
 enum AuthMode { login, register }
 
-class LoginRegisterScreen extends StatefulWidget {
+class LoginRegisterScreen extends ConsumerStatefulWidget {
   const LoginRegisterScreen({super.key});
 
   @override
-  State<LoginRegisterScreen> createState() => _LoginRegisterScreenState();
+  ConsumerState<LoginRegisterScreen> createState() =>
+      _LoginRegisterScreenState();
 }
 
-class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
-  AuthMode _mode = AuthMode.login;
+class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  AuthMode _mode = AuthMode.login;
   String? _errorText;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -27,7 +32,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text;
 
@@ -43,10 +48,39 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
       }
 
       _errorText = null;
+      _isSubmitting = true;
     });
 
-    if (_errorText == null) {
-      context.go(AppRoutes.otp);
+    if (_errorText != null) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
+    try {
+      final auth = ref.read(authRepositoryProvider);
+      if (_mode == AuthMode.login) {
+        await auth.login(mobile: phone, password: password);
+      } else {
+        await auth.register(
+          fullName: 'MineGrow User',
+          mobile: phone,
+          password: password,
+        );
+      }
+
+      if (mounted) {
+        context.go(AppRoutes.otp);
+      }
+    } on ApiException catch (error) {
+      setState(() => _errorText = error.message);
+    } catch (_) {
+      setState(() {
+        _errorText = 'Could not reach the MineGrow server. Try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -90,7 +124,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
             hintText: 'Enter mobile number',
             keyboardType: TextInputType.phone,
             controller: _phoneController,
-            prefix: Text('+91'),
+            prefix: const Text('+91'),
           ),
           const SizedBox(height: 18),
           MGTextField(
@@ -98,7 +132,7 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
             hintText: 'Enter password',
             obscureText: true,
             controller: _passwordController,
-            suffixIcon: Icon(Icons.visibility_outlined, size: 18),
+            suffixIcon: const Icon(Icons.visibility_outlined, size: 18),
           ),
           if (_mode == AuthMode.register) ...[
             const SizedBox(height: 18),
@@ -116,20 +150,12 @@ class _LoginRegisterScreenState extends State<LoginRegisterScreen> {
               icon: Icons.error_outline,
             ),
           ],
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Forgot Password?',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: context.tokens.textSecondary,
-              ),
-            ),
-          ),
           const SizedBox(height: 24),
           MGGradientButton(
-            label: _mode == AuthMode.login ? 'Login' : 'Register',
-            onPressed: _submit,
+            label: _isSubmitting
+                ? 'Please wait...'
+                : (_mode == AuthMode.login ? 'Login' : 'Register'),
+            onPressed: _isSubmitting ? null : _submit,
           ),
           const SizedBox(height: 24),
           Row(

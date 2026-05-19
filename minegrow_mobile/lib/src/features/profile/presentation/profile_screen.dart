@@ -1,103 +1,143 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../auth/data/auth_repository.dart';
+import '../data/profile_repository.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileState = ref.watch(profileProvider);
+    final bankAccountsState = ref.watch(bankAccountsProvider);
+
     return MGScaffold(
       appBar: const MGAppBar(title: 'My Profile'),
       mainNavigationIndex: 4,
       body: Padding(
         padding: const EdgeInsets.only(bottom: 80),
-        child: Column(
-          children: [
-            MGCard(
-              gradient: context.tokens.walletGradient,
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: context.tokens.brandGold,
-                    child: Icon(
-                      Icons.person,
-                      color: context.tokens.background,
-                      size: 36,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Ramesh Kumar',
-                          style: Theme.of(context).textTheme.titleMedium,
+        child: profileState.when(
+          loading: () => const MGLoadingList(itemCount: 3),
+          error: (error, stackTrace) => MGFriendlyState(
+            icon: Icons.person_off_outlined,
+            title: 'Profile could not load',
+            message:
+                'Login again or check your connection to refresh account details.',
+            actionLabel: 'Retry',
+            onAction: () => ref.invalidate(profileProvider),
+          ),
+          data: (profile) {
+            final bankAccountCount = bankAccountsState.maybeWhen(
+              data: (accounts) => accounts.length,
+              orElse: () => 0,
+            );
+
+            return Column(
+              children: [
+                MGCard(
+                  gradient: context.tokens.walletGradient,
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: context.tokens.brandGold,
+                        child: Icon(
+                          Icons.person,
+                          color: context.tokens.background,
+                          size: 36,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '+91 9876543210',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: context.tokens.textSecondary),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.fullName,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              profile.mobile,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: context.tokens.textSecondary,
+                                  ),
+                            ),
+                            Text(
+                              profile.email ?? 'Email not added',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: context.tokens.textSecondary,
+                                  ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          'ramesh@gmail.com',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: context.tokens.textSecondary),
-                        ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.edit_outlined),
+                ),
+                const SizedBox(height: 16),
+                _ProfileTile(
+                  icon: Icons.verified_user_outlined,
+                  title: 'KYC Verification',
+                  trailing: MGStatusChip(
+                    status: profile.kycVerified
+                        ? MGStatus.verified
+                        : MGStatus.pending,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _ProfileTile(
-              icon: Icons.verified_user_outlined,
-              title: 'KYC Verification',
-              trailing: const MGStatusChip(status: MGStatus.verified),
-            ),
-            const _ProfileTile(
-              icon: Icons.account_balance_outlined,
-              title: 'Bank Accounts',
-              value: '2 Accounts',
-            ),
-            const _ProfileTile(
-              icon: Icons.payments_outlined,
-              title: 'UPI Details',
-              value: '1 UPI Added',
-            ),
-            const _ProfileTile(
-              icon: Icons.lock_outline,
-              title: 'Change Password',
-            ),
-            _ProfileTile(
-              icon: Icons.notifications_none,
-              title: 'Notification Settings',
-              onTap: () => context.go(AppRoutes.notifications),
-            ),
-            const MGInlineMessage(
-              message:
-                  'Keep KYC, bank account, and UPI details updated to avoid payout delays.',
-              tone: MGMessageTone.info,
-              icon: Icons.verified_user_outlined,
-            ),
-            const SizedBox(height: 10),
-            _ProfileTile(
-              icon: Icons.logout,
-              title: 'Logout',
-              titleColor: context.tokens.danger,
-            ),
-          ],
+                ),
+                _ProfileTile(
+                  icon: Icons.account_balance_outlined,
+                  title: 'Bank Accounts',
+                  value: '$bankAccountCount Accounts',
+                ),
+                const _ProfileTile(
+                  icon: Icons.payments_outlined,
+                  title: 'UPI Details',
+                  value: 'Linked with bank accounts',
+                ),
+                const _ProfileTile(
+                  icon: Icons.lock_outline,
+                  title: 'Change Password',
+                ),
+                _ProfileTile(
+                  icon: Icons.notifications_none,
+                  title: 'Notification Settings',
+                  onTap: () => context.go(AppRoutes.notifications),
+                ),
+                const MGInlineMessage(
+                  message:
+                      'Keep KYC, bank account, and UPI details updated to avoid payout delays.',
+                  tone: MGMessageTone.info,
+                  icon: Icons.verified_user_outlined,
+                ),
+                const SizedBox(height: 10),
+                _ProfileTile(
+                  icon: Icons.logout,
+                  title: 'Logout',
+                  titleColor: context.tokens.danger,
+                  onTap: () async {
+                    await ref.read(authRepositoryProvider).logout();
+                    ref.invalidate(profileProvider);
+                    ref.invalidate(bankAccountsProvider);
+                    if (context.mounted) {
+                      context.go(AppRoutes.auth);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

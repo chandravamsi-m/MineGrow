@@ -12,10 +12,22 @@ class ApiException implements Exception {
     final statusCode = response?.statusCode;
 
     return ApiException(
-      message: _messageFor(exception),
+      message: _backendMessage(response?.data) ?? _messageFor(exception),
       statusCode: statusCode,
       cause: exception,
     );
+  }
+
+  static String? _backendMessage(Object? data) {
+    if (data case {'error': {'message': final String message}}) {
+      return message;
+    }
+
+    if (data case {'message': final String message}) {
+      return message;
+    }
+
+    return null;
   }
 
   static String _messageFor(DioException exception) {
