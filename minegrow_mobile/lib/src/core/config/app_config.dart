@@ -1,13 +1,11 @@
-abstract final class AppConfig {
-  static const apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000',
-  );
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-  static const apiVersion = String.fromEnvironment(
-    'API_VERSION',
-    defaultValue: 'api/v1',
-  );
+abstract final class AppConfig {
+  static String get apiBaseUrl =>
+      dotenv.maybeGet('API_BASE_URL') ?? 'http://10.0.2.2:3000';
+
+  static String get apiVersion =>
+      dotenv.maybeGet('API_VERSION') ?? 'api/v1';
 
   static const networkTimeout = Duration(seconds: 30);
 
