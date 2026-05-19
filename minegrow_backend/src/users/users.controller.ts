@@ -1,13 +1,15 @@
 import { Controller, Get, Put, Post, Delete, Patch, Body, Param, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UpdateProfileDto, ChangePasswordDto, AddBankAccountDto, RegisterDeviceTokenDto } from './dto/users.dto';
+import { UpdateProfileDto, AddBankAccountDto, RegisterDeviceTokenDto } from './dto/users.dto';
 
 @Controller('users')
+@ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('USER')
 export class UsersController {
@@ -21,11 +23,6 @@ export class UsersController {
   @Put('profile')
   async updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.id, dto);
-  }
-
-  @Post('change-password')
-  async changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
-    return this.usersService.changePassword(user.id, dto);
   }
 
   @Post('kyc')

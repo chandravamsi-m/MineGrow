@@ -1,48 +1,15 @@
 import { IsNotEmpty, IsString, IsEmail, IsOptional, Length, Matches, IsIn } from 'class-validator';
 
-export class RegisterDto {
-  @IsNotEmpty()
-  @IsString()
-  @Length(2, 100)
-  fullName: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid mobile number format' })
-  mobile: string;
-
-  @IsOptional()
-  @IsEmail()
-  email?: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @Length(6, 40, { message: 'Password must be between 6 and 40 characters' })
-  password: string;
-}
-
-export class LoginDto {
-  @IsNotEmpty()
-  @IsString()
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid mobile number format' })
-  mobile: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @Length(6, 40)
-  password: string;
-}
-
 export class SendOtpDto {
   @IsNotEmpty()
   @IsString()
   @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid mobile number format' })
   mobile: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   @IsIn(['register', 'login', 'forgot_password'])
-  purpose: string;
+  purpose?: string;
 }
 
 export class VerifyOtpDto {
@@ -56,27 +23,10 @@ export class VerifyOtpDto {
   @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
   otp: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   @IsIn(['register', 'login', 'forgot_password'])
-  purpose: string;
-}
-
-export class ResetPasswordDto {
-  @IsNotEmpty()
-  @IsString()
-  @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid mobile number format' })
-  mobile: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @Length(6, 6)
-  otp: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @Length(6, 40)
-  password: string;
+  purpose?: string;
 }
 
 export class AdminLoginDto {
@@ -88,4 +38,20 @@ export class AdminLoginDto {
   @IsString()
   @Length(6, 40)
   password: string;
+}
+
+export class OnboardStep1Dto {
+  @IsNotEmpty()
+  @IsString()
+  @Length(2, 100)
+  fullName: string;
+
+  @IsNotEmpty()
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @Length(2, 500)
+  address: string;
 }

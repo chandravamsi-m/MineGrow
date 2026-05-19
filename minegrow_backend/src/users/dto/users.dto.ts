@@ -9,18 +9,10 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsEmail()
   email?: string;
-}
 
-export class ChangePasswordDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  @Length(6, 40)
-  currentPassword: string;
-
-  @IsNotEmpty()
-  @IsString()
-  @Length(6, 40)
-  newPassword: string;
+  address?: string;
 }
 
 export class AddBankAccountDto {

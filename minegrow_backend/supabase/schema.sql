@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(100) NOT NULL,
     mobile VARCHAR(15) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
     status VARCHAR(20) DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'suspended', 'pending_kyc')),
     kyc_verified BOOLEAN DEFAULT false NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,

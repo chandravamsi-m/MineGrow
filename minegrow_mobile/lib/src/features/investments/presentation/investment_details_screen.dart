@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -38,7 +39,7 @@ class _InvestmentDetailsScreenState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
-      withData: false,
+      withData: true,
     );
 
     if (result == null || result.files.isEmpty) {
@@ -53,7 +54,7 @@ class _InvestmentDetailsScreenState
 
   Future<void> _submit(InvestmentPlan plan) async {
     final amount = num.tryParse(_amountController.text.trim());
-    final proofPath = _proofFile?.path;
+    final proofFile = _proofFile;
 
     setState(() {
       if (amount == null || amount <= 0) {
@@ -67,7 +68,7 @@ class _InvestmentDetailsScreenState
         return;
       }
 
-      if (proofPath == null || proofPath.isEmpty) {
+      if (proofFile == null) {
         _messageText = 'Upload a payment proof screenshot to continue.';
         return;
       }
@@ -76,15 +77,32 @@ class _InvestmentDetailsScreenState
       _isSubmitting = true;
     });
 
-    if (_messageText != null || amount == null || proofPath == null) {
+    if (_messageText != null || amount == null || proofFile == null) {
       return;
     }
 
     try {
-      final proof = await MultipartFile.fromFile(
-        proofPath,
-        filename: _proofFile?.name,
-      );
+      final MultipartFile proof;
+      if (kIsWeb) {
+        final bytes = proofFile.bytes;
+        if (bytes == null) {
+          throw const ApiException(message: 'Could not read payment proof file bytes.');
+        }
+        proof = MultipartFile.fromBytes(
+          bytes,
+          filename: proofFile.name,
+        );
+      } else {
+        final path = proofFile.path;
+        if (path == null || path.isEmpty) {
+          throw const ApiException(message: 'Could not locate payment proof file path.');
+        }
+        proof = await MultipartFile.fromFile(
+          path,
+          filename: proofFile.name,
+        );
+      }
+
       await ref
           .read(investmentsRepositoryProvider)
           .createInvestment(

@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/dio_client.dart';
@@ -22,44 +21,6 @@ class AuthRepository {
   final ApiClient _apiClient;
   final LocalStorage _storage;
 
-  Future<void> login({required String mobile, required String password}) async {
-    final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
-    await _apiClient.postData<void>(
-      '/auth/login',
-      data: {'mobile': fullMobile, 'password': password},
-      options: Options(
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      ),
-      parser: (_) {},
-    );
-    await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
-    await _storage.writeString(AuthStorageKeys.otpPurpose, 'login');
-  }
-
-  Future<void> register({
-    required String fullName,
-    required String mobile,
-    required String password,
-    String? email,
-  }) async {
-    final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
-    await _apiClient.postData<void>(
-      '/auth/register',
-      data: {
-        'fullName': fullName,
-        'mobile': fullMobile,
-        'password': password,
-        if (email != null && email.isNotEmpty) 'email': email,
-      },
-      parser: (_) {},
-    );
-    await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
-    await _storage.writeString(AuthStorageKeys.otpPurpose, 'register');
-  }
-
   Future<void> sendOtp({
     required String mobile,
     required String purpose,
@@ -70,6 +31,8 @@ class AuthRepository {
       data: {'mobile': fullMobile, 'purpose': purpose},
       parser: (_) {},
     );
+    await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
+    await _storage.writeString(AuthStorageKeys.otpPurpose, purpose);
   }
 
   Future<AuthSession> verifyOtp({
@@ -85,6 +48,26 @@ class AuthRepository {
     );
     await _saveSession(session, fullMobile);
     return session;
+  }
+
+  Future<UserProfile> onboardStep1({
+    required String fullName,
+    required String email,
+    required String address,
+  }) async {
+    final profile = await _apiClient.postData<UserProfile>(
+      '/auth/onboard/step1',
+      data: {
+        'fullName': fullName,
+        'email': email,
+        'address': address,
+      },
+      parser: (json) {
+        final map = json as Map<String, dynamic>;
+        return UserProfile.fromJson(map['user']);
+      },
+    );
+    return profile;
   }
 
   Future<void> logout() async {

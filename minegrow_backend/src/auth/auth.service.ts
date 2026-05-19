@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { SupabaseClientService } from '../config/supabase.client';
 import { SmsService } from '../sms/sms.service';
 import * as bcrypt from 'bcryptjs';
-import { RegisterDto, LoginDto, SendOtpDto, VerifyOtpDto, ResetPasswordDto, AdminLoginDto } from './dto/auth.dto';
+import { SendOtpDto, VerifyOtpDto, AdminLoginDto, OnboardStep1Dto } from './dto/auth.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
 @Injectable()
@@ -19,197 +19,123 @@ export class AuthService {
   ) {}
 
   /**
-   * Register a new user account.
-   * Inserts the user with password hash and automatically creates a wallet row.
+   * Sends secure SMS OTP to the requested mobile number using Supabase Auth.
+   * Supabase automatically routes it through the Twilio gateway.
    */
-  async register(dto: RegisterDto) {
+  async sendOtp(dto: SendOtpDto) {
     const supabase = this.supabaseService.getClient();
 
-    // 1. Check if user already exists
-    const { data: existingUser } = await supabase
+    // Check if user exists in the custom users table
+    const { data: user } = await supabase
       .from('users')
       .select('id')
       .eq('mobile', dto.mobile)
       .maybeSingle();
 
-    if (existingUser) {
-      throw new BadRequestException('Mobile number is already registered');
+    const isExistingUser = !!user;
+
+    // Trigger Supabase OTP send
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: dto.mobile,
+    });
+
+    if (error) {
+      this.logger.error(`Supabase signInWithOtp failed for ${dto.mobile}:`, error);
+      throw new InternalServerErrorException(`Failed to dispatch OTP: ${error.message}`);
     }
-
-    // 2. Hash password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(dto.password, salt);
-
-    // 3. Insert user (initially active for standard login, but marked pending_kyc if preferred)
-    const { data: newUser, error: createError } = await supabase
-      .from('users')
-      .insert({
-        full_name: dto.fullName,
-        mobile: dto.mobile,
-        email: dto.email || null,
-        password_hash: passwordHash,
-        status: 'active', // default active status
-        kyc_verified: false,
-      })
-      .select('id, full_name, mobile, email')
-      .single();
-
-    if (createError || !newUser) {
-      this.logger.error('Failed to create user:', createError);
-      throw new InternalServerErrorException('Error registering user');
-    }
-
-    // 4. Automatically create wallet for user
-    const { error: walletError } = await supabase
-      .from('wallets')
-      .insert({
-        user_id: newUser.id,
-        roi_balance: 0.00,
-        principal_balance: 0.00,
-        total_roi_earned: 0.00,
-      });
-
-    if (walletError) {
-      this.logger.error(`Wallet creation failed for user ID ${newUser.id}:`, walletError);
-      // Clean up user to avoid orphans
-      await supabase.from('users').delete().eq('id', newUser.id);
-      throw new InternalServerErrorException('Error initializing user wallet');
-    }
-
-    // 5. Generate and dispatch registration OTP
-    await this.sendOtp({ mobile: dto.mobile, purpose: 'register' });
 
     return {
-      message: 'Registration initiated successfully. OTP sent for verification.',
-      mobile: newUser.mobile,
-    };
-  }
-
-  /**
-   * Sends secure 6-digit numeric OTP to the requested mobile number.
-   * Enforces 3 OTP requests per 10 minutes rate limit.
-   */
-  async sendOtp(dto: SendOtpDto) {
-    const supabase = this.supabaseService.getClient();
-    const tenMinutesAgo = getISTDateTimeString(new Date(Date.now() - 10 * 60 * 1000));
-
-    // 1. Enforce rate limit (max 3 OTP requests per 10 minutes)
-    const { data: recentOtps, error: countError } = await supabase
-      .from('otps')
-      .select('id')
-      .eq('mobile', dto.mobile)
-      .eq('used', false)
-      .gte('created_at', tenMinutesAgo);
-
-    if (countError) {
-      this.logger.error('Error fetching OTP rate counts:', countError);
-    }
-
-    if (recentOtps && recentOtps.length >= 3) {
-      throw new BadRequestException('Too many OTP requests. Please wait a few minutes before trying again.');
-    }
-
-    // 2. Generate 6-digit numeric OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // 3. Hash OTP using bcryptjs
-    const salt = await bcrypt.genSalt(10);
-    const otpHash = await bcrypt.hash(otpCode, salt);
-
-    // 4. Save hashed OTP to db
-    const expiryMinutes = this.configService.get<number>('otpExpiryMinutes') || 5;
-    const expiresAt = getISTDateTimeString(new Date(Date.now() + expiryMinutes * 60 * 1000));
-
-    const { error: insertError } = await supabase
-      .from('otps')
-      .insert({
-        mobile: dto.mobile,
-        otp_hash: otpHash,
-        purpose: dto.purpose,
-        expires_at: expiresAt,
-        used: false,
-      });
-
-    if (insertError) {
-      this.logger.error('Failed to save OTP:', insertError);
-      throw new InternalServerErrorException('Error processing OTP generation');
-    }
-
-    // 5. Send OTP via SMS
-    await this.smsService.sendOtp(dto.mobile, otpCode);
-
-    return {
-      message: 'OTP dispatched successfully',
+      message: 'OTP dispatched successfully via Supabase',
       mobile: dto.mobile,
+      isExistingUser,
     };
   }
 
   /**
-   * Verifies the provided OTP.
-   * If correct, updates used status and issues active JWT session.
+   * Verifies the provided OTP using Supabase Auth.
+   * On success, issues active NestJS JWT session.
    */
   async verifyOtp(dto: VerifyOtpDto) {
     const supabase = this.supabaseService.getClient();
 
-    // 1. Fetch valid, unexpired, unused OTPs for the mobile
-    const { data: activeOtps, error: otpError } = await supabase
-      .from('otps')
-      .select('id, otp_hash, expires_at')
-      .eq('mobile', dto.mobile)
-      .eq('purpose', dto.purpose)
-      .eq('used', false)
-      .gt('expires_at', getISTDateTimeString())
-      .order('created_at', { ascending: false });
+    // 1. Verify OTP via Supabase
+    const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+      phone: dto.mobile,
+      token: dto.otp,
+      type: 'sms',
+    });
 
-    if (otpError || !activeOtps || activeOtps.length === 0) {
-      throw new BadRequestException('Invalid or expired OTP');
+    if (authError || !authData) {
+      this.logger.error(`Supabase verifyOtp failed for ${dto.mobile}:`, authError);
+      throw new BadRequestException(authError?.message || 'Invalid or expired OTP');
     }
 
-    // 2. Validate OTP code
-    let matchedOtp = null;
-    for (const otpEntry of activeOtps) {
-      const isMatch = await bcrypt.compare(dto.otp, otpEntry.otp_hash);
-      if (isMatch) {
-        matchedOtp = otpEntry;
-        break;
-      }
-    }
-
-    if (!matchedOtp) {
-      throw new BadRequestException('Invalid OTP code provided');
-    }
-
-    // 3. Mark OTP as used immediately
-    await supabase
-      .from('otps')
-      .update({ used: true })
-      .eq('id', matchedOtp.id);
-
-    // 4. Retrieve user to complete login/registration sequence
-    const { data: user, error: userError } = await supabase
+    // 2. Retrieve user to complete login/registration sequence
+    let { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, full_name, mobile, email, status')
+      .select('id, full_name, mobile, email, status, address')
       .eq('mobile', dto.mobile)
-      .single();
+      .maybeSingle();
 
-    if (userError || !user) {
-      throw new BadRequestException('User registration record not found');
+    let isNewUser = false;
+
+    // 3. Fallback Auto-Registration if user authenticated via Supabase but profile missing
+    if (!user) {
+      isNewUser = true;
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          full_name: 'New User',
+          mobile: dto.mobile,
+          status: 'active',
+          kyc_verified: false,
+        })
+        .select('id, full_name, mobile, email, status, address')
+        .single();
+
+      if (createError || !newUser) {
+        this.logger.error('Failed to auto-register user on verification:', createError);
+        throw new InternalServerErrorException('Error registering user profile');
+      }
+
+      // Initialize wallet
+      const { error: walletError } = await supabase
+        .from('wallets')
+        .insert({
+          user_id: newUser.id,
+          roi_balance: 0.00,
+          principal_balance: 0.00,
+          total_roi_earned: 0.00,
+        });
+
+      if (walletError) {
+        this.logger.error(`Auto-wallet creation failed for user ID ${newUser.id}:`, walletError);
+      }
+
+      user = newUser;
+    } else {
+      // If user exists but full_name is default placeholder or address is empty/null, they are still considered new (mandatory step 1 onboarding is pending!)
+      if (user.full_name === 'New User' || !user.address) {
+        isNewUser = true;
+      }
     }
 
     if (user.status === 'suspended') {
       throw new UnauthorizedException('User account is suspended');
     }
 
-    // 5. Issue JWT access and refresh tokens
+    // 4. Issue custom NestJS JWT access and refresh tokens
     const tokens = await this.generateTokenPair(user.id, 'USER');
 
     return {
       message: 'OTP verified successfully',
+      isNewUser,
       user: {
         id: user.id,
         fullName: user.full_name,
         mobile: user.mobile,
         email: user.email,
+        address: user.address,
         status: user.status,
       },
       ...tokens,
@@ -217,71 +143,31 @@ export class AuthService {
   }
 
   /**
-   * Handles user credential validation and triggers a 2FA SMS verification.
+   * Completes mandatory Step 1 onboarding profile details.
    */
-  async login(dto: LoginDto) {
+  async onboardStep1(userId: number, dto: OnboardStep1Dto) {
     const supabase = this.supabaseService.getClient();
 
-    // 1. Find user
-    const { data: user, error: userError } = await supabase
+    const { data: user, error } = await supabase
       .from('users')
-      .select('id, password_hash, status')
-      .eq('mobile', dto.mobile)
-      .maybeSingle();
+      .update({
+        full_name: dto.fullName,
+        email: dto.email,
+        address: dto.address,
+        updated_at: getISTDateTimeString(),
+      })
+      .eq('id', userId)
+      .select('id, full_name, mobile, email, address, status, kyc_verified')
+      .single();
 
-    if (userError || !user) {
-      throw new UnauthorizedException('Invalid mobile number or password');
-    }
-
-    if (user.status === 'suspended') {
-      throw new UnauthorizedException('User account is suspended');
-    }
-
-    // 2. Check password
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password_hash);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid mobile number or password');
-    }
-
-    // 3. Trigger 2FA OTP Send
-    await this.sendOtp({ mobile: dto.mobile, purpose: 'login' });
-
-    return {
-      message: 'Credentials verified successfully. OTP sent for 2FA verification.',
-      mobile: dto.mobile,
-    };
-  }
-
-  /**
-   * Reset user password after verified OTP.
-   */
-  async resetPassword(dto: ResetPasswordDto) {
-    const supabase = this.supabaseService.getClient();
-
-    // 1. Verify OTP first
-    await this.verifyOtp({
-      mobile: dto.mobile,
-      otp: dto.otp,
-      purpose: 'forgot_password',
-    });
-
-    // 2. Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const newPasswordHash = await bcrypt.hash(dto.password, salt);
-
-    // 3. Update user password
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({ password_hash: newPasswordHash, updated_at: getISTDateTimeString() })
-      .eq('mobile', dto.mobile);
-
-    if (updateError) {
-      this.logger.error('Failed to update password:', updateError);
-      throw new InternalServerErrorException('Error resetting user password');
+    if (error || !user) {
+      this.logger.error(`Failed to update onboarding step 1 for user ID ${userId}:`, error);
+      throw new InternalServerErrorException('Error completing profile onboarding details');
     }
 
     return {
-      message: 'Password reset successfully. You can now log in.',
+      message: 'Mandatory profile onboarding Step 1 completed successfully',
+      user,
     };
   }
 

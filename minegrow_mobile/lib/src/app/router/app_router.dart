@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/login_register_screen.dart';
 import '../../features/auth/presentation/otp_verification_screen.dart';
+import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/history/presentation/roi_history_screen.dart';
 import '../../features/history/presentation/withdrawal_history_screen.dart';
@@ -20,6 +21,7 @@ abstract final class AppRoutes {
   static const splash = '/';
   static const auth = '/auth';
   static const otp = '/otp';
+  static const onboarding = '/onboard';
   static const dashboard = '/dashboard';
   static const investments = '/investments';
   static const investmentDetails = '/investments/create';
@@ -50,6 +52,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.otp,
         name: 'otp',
         builder: (context, state) => const OtpVerificationScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboarding,
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: AppRoutes.dashboard,
