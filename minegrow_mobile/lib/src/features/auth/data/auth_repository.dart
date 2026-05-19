@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/dio_client.dart';
@@ -22,12 +23,19 @@ class AuthRepository {
   final LocalStorage _storage;
 
   Future<void> login({required String mobile, required String password}) async {
+    final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
     await _apiClient.postData<void>(
       '/auth/login',
-      data: {'mobile': mobile, 'password': password},
+      data: {'mobile': fullMobile, 'password': password},
+      options: Options(
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      ),
       parser: (_) {},
     );
-    await _storage.writeString(AuthStorageKeys.mobile, mobile);
+    await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
     await _storage.writeString(AuthStorageKeys.otpPurpose, 'login');
   }
 
@@ -37,17 +45,18 @@ class AuthRepository {
     required String password,
     String? email,
   }) async {
+    final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
     await _apiClient.postData<void>(
       '/auth/register',
       data: {
         'fullName': fullName,
-        'mobile': mobile,
+        'mobile': fullMobile,
         'password': password,
         if (email != null && email.isNotEmpty) 'email': email,
       },
       parser: (_) {},
     );
-    await _storage.writeString(AuthStorageKeys.mobile, mobile);
+    await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
     await _storage.writeString(AuthStorageKeys.otpPurpose, 'register');
   }
 
@@ -55,9 +64,10 @@ class AuthRepository {
     required String mobile,
     required String purpose,
   }) async {
+    final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
     await _apiClient.postData<void>(
       '/auth/send-otp',
-      data: {'mobile': mobile, 'purpose': purpose},
+      data: {'mobile': fullMobile, 'purpose': purpose},
       parser: (_) {},
     );
   }
@@ -67,12 +77,13 @@ class AuthRepository {
     required String otp,
     required String purpose,
   }) async {
+    final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
     final session = await _apiClient.postData<AuthSession>(
       '/auth/verify-otp',
-      data: {'mobile': mobile, 'otp': otp, 'purpose': purpose},
+      data: {'mobile': fullMobile, 'otp': otp, 'purpose': purpose},
       parser: AuthSession.fromJson,
     );
-    await _saveSession(session, mobile);
+    await _saveSession(session, fullMobile);
     return session;
   }
 
