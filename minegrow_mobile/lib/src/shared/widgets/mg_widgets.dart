@@ -423,7 +423,7 @@ class _SegmentButton<T> extends StatelessWidget {
   }
 }
 
-class MGTextField extends StatelessWidget {
+class MGTextField extends StatefulWidget {
   const MGTextField({
     super.key,
     required this.hintText,
@@ -444,30 +444,64 @@ class MGTextField extends StatelessWidget {
   final TextEditingController? controller;
 
   @override
+  State<MGTextField> createState() => _MGTextFieldState();
+}
+
+class _MGTextFieldState extends State<MGTextField> {
+  late bool _obscured;
+
+  @override
+  void initState() {
+    super.initState();
+    _obscured = widget.obscureText;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final Widget? effectiveSuffixIcon = widget.obscureText
+        ? GestureDetector(
+            onTap: () {
+              setState(() {
+                _obscured = !_obscured;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(right: 14, left: 8),
+              child: Icon(
+                _obscured
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 18,
+                color: context.tokens.textSecondary,
+              ),
+            ),
+          )
+        : widget.suffixIcon;
+
     final field = SizedBox(
       height: context.metrics.fieldHeight,
       child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        keyboardType: keyboardType,
+        controller: widget.controller,
+        obscureText: _obscured,
+        keyboardType: widget.keyboardType,
         style: Theme.of(context).textTheme.bodyMedium,
         decoration: InputDecoration(
-          hintText: hintText,
-          prefixIcon: prefix == null
+          hintText: widget.hintText,
+          prefixIcon: widget.prefix == null
               ? null
               : Padding(
                   padding: const EdgeInsets.only(left: 14, right: 8),
-                  child: prefix,
+                  child: widget.prefix,
                 ),
           prefixIconConstraints: const BoxConstraints(minWidth: 0),
-          suffixIcon: suffixIcon,
+          suffixIcon: effectiveSuffixIcon,
+          suffixIconConstraints: const BoxConstraints(minWidth: 0),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14),
         ),
       ),
     );
 
-    if (label == null) {
+    if (widget.label == null) {
       return field;
     }
 
@@ -475,7 +509,7 @@ class MGTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label!,
+          widget.label!,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: context.tokens.textSecondary,
             fontWeight: FontWeight.w600,

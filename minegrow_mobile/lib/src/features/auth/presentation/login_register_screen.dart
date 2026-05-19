@@ -132,7 +132,6 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
             hintText: 'Enter password',
             obscureText: true,
             controller: _passwordController,
-            suffixIcon: const Icon(Icons.visibility_outlined, size: 18),
           ),
           if (_mode == AuthMode.register) ...[
             const SizedBox(height: 18),
