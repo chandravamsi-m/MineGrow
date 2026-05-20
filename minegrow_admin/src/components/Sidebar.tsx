@@ -9,14 +9,17 @@ import {
   BookOpen,
   LogOut,
   Sparkles,
+  X,
 } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onClose }) => {
   const { admin, logout } = useAuth();
 
   const navigationItems = [
@@ -29,20 +32,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   ];
 
   return (
-    <aside className="w-64 glass-panel border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 z-20">
+    <aside className={`w-64 glass-panel border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 z-50 transition-transform duration-300 ${
+      isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+    }`}>
       {/* Brand Header */}
-      <div className="p-6 border-b border-slate-800 flex items-center space-x-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <Sparkles className="w-5 h-5 text-white animate-pulse" />
+      <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Sparkles className="w-5 h-5 text-white animate-pulse" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-white via-slate-100 to-indigo-400 bg-clip-text text-transparent leading-none">
+              MineGrow
+            </h1>
+            <span className="text-[10px] tracking-wider text-indigo-400 font-bold uppercase mt-1 block">
+              Control Center
+            </span>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-white via-slate-100 to-indigo-400 bg-clip-text text-transparent leading-none">
-            MineGrow
-          </h1>
-          <span className="text-[10px] tracking-wider text-indigo-400 font-bold uppercase mt-1 block">
-            Control Center
-          </span>
-        </div>
+        {/* Mobile close button */}
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 rounded-lg cursor-pointer transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Nav List */}
@@ -53,7 +67,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                onClose(); // Automatically close drawer on mobile selection
+              }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
                 isActive
                   ? 'bg-gradient-to-r from-indigo-600/20 to-purple-600/20 text-indigo-300 border-l-4 border-indigo-500 shadow-md font-medium'
