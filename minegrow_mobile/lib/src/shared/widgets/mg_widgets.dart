@@ -102,7 +102,9 @@ class MGMainNavigationShell extends StatelessWidget {
 
   static int _indexForLocation(String location) {
     if (location == AppRoutes.investments ||
-        location == AppRoutes.investmentDetails) {
+        location == AppRoutes.investmentDetails ||
+        location == AppRoutes.investmentPayment ||
+        location == AppRoutes.investmentPending) {
       return 1;
     }
     if (location == AppRoutes.wallet || location == AppRoutes.withdrawal) {

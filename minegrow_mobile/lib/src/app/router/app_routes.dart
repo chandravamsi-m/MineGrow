@@ -6,6 +6,8 @@ abstract final class AppRoutes {
   static const dashboard = '/dashboard';
   static const investments = '/investments';
   static const investmentDetails = '/investments/create';
+  static const investmentPayment = '/investments/payment';
+  static const investmentPending = '/investments/pending';
   static const wallet = '/wallet';
   static const roiHistory = '/history/roi';
   static const withdrawal = '/withdraw';
