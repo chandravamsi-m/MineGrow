@@ -10,4 +10,7 @@ abstract final class AppConfig {
   static const networkTimeout = Duration(seconds: 30);
 
   static String get apiUrl => '$apiBaseUrl/$apiVersion';
+
+  static String get paymentUpiId =>
+      dotenv.maybeGet('PAYMENT_UPI_ID') ?? 'minegrow@upi';
 }
