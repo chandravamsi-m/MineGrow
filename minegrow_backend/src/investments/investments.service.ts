@@ -1,10 +1,23 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { UploadsService } from '../uploads/uploads.service';
 import { PlansService } from '../plans/plans.service';
 import { AuditService } from '../audit/audit.service';
-import { CreateInvestmentDto, RejectInvestmentDto } from './dto/investments.dto';
-import { getISTDate, getISTDateString, getISTDateTimeString } from '../common/utils/date.utils';
+import {
+  CreateInvestmentDto,
+  RejectInvestmentDto,
+} from './dto/investments.dto';
+import {
+  getISTDate,
+  getISTDateString,
+  getISTDateTimeString,
+} from '../common/utils/date.utils';
 
 @Injectable()
 export class InvestmentsService {
@@ -36,7 +49,9 @@ export class InvestmentsService {
     }
 
     if (user.status !== 'active') {
-      throw new BadRequestException('Your account must be active to initiate investments');
+      throw new BadRequestException(
+        'Your account must be active to initiate investments',
+      );
     }
 
     // 2. Fetch the selected active investment plan
@@ -44,14 +59,22 @@ export class InvestmentsService {
 
     // 3. Validate investment amount limits for the selected plan
     const amountVal = Number(dto.amount);
-    if (amountVal < Number(plan.min_amount) || amountVal > Number(plan.max_amount)) {
+    if (
+      amountVal < Number(plan.min_amount) ||
+      amountVal > Number(plan.max_amount)
+    ) {
       throw new BadRequestException(
-        `Investment amount must be between ₹${Number(plan.min_amount).toLocaleString()} and ₹${Number(plan.max_amount).toLocaleString()} for the ${plan.plan_name}.`
+        `Investment amount must be between ₹${Number(plan.min_amount).toLocaleString()} and ₹${Number(plan.max_amount).toLocaleString()} for the ${plan.plan_name}.`,
       );
     }
 
     // 4. Upload payment screenshot proof
-    const storagePath = await this.uploadsService.uploadFile(userId, 'payment-proofs', file, 'investment');
+    const storagePath = await this.uploadsService.uploadFile(
+      userId,
+      'payment-proofs',
+      file,
+      'investment',
+    );
 
     // 5. Insert investment record with snapshotted plan values
     const { data: investment, error: insertError } = await supabase
@@ -71,7 +94,9 @@ export class InvestmentsService {
 
     if (insertError || !investment) {
       this.logger.error('Failed to create investment record:', insertError);
-      throw new InternalServerErrorException('Error submitting investment request');
+      throw new InternalServerErrorException(
+        'Error submitting investment request',
+      );
     }
 
     return investment;
@@ -86,7 +111,9 @@ export class InvestmentsService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new InternalServerErrorException('Error retrieving investments list');
+      throw new InternalServerErrorException(
+        'Error retrieving investments list',
+      );
     }
 
     return investments;
@@ -102,15 +129,23 @@ export class InvestmentsService {
       .maybeSingle();
 
     if (error || !investment) {
-      throw new NotFoundException('Investment record not found or access denied');
+      throw new NotFoundException(
+        'Investment record not found or access denied',
+      );
     }
 
     return investment;
   }
 
-  async getAllInvestments(filters: { status?: string; userId?: number; date?: string }) {
+  async getAllInvestments(filters: {
+    status?: string;
+    userId?: number;
+    date?: string;
+  }) {
     const supabase = this.supabaseService.getClient();
-    let query = supabase.from('investments').select('*, users(full_name, mobile)');
+    let query = supabase
+      .from('investments')
+      .select('*, users(full_name, mobile)');
 
     if (filters.status) {
       query = query.eq('status', filters.status);
@@ -119,14 +154,20 @@ export class InvestmentsService {
       query = query.eq('user_id', filters.userId);
     }
     if (filters.date) {
-      query = query.gte('created_at', `${filters.date}T00:00:00.000Z`).lte('created_at', `${filters.date}T23:59:59.999Z`);
+      query = query
+        .gte('created_at', `${filters.date}T00:00:00.000Z`)
+        .lte('created_at', `${filters.date}T23:59:59.999Z`);
     }
 
-    const { data: investments, error } = await query.order('created_at', { ascending: false });
+    const { data: investments, error } = await query.order('created_at', {
+      ascending: false,
+    });
 
     if (error) {
       this.logger.error('Error fetching admin investments:', error);
-      throw new InternalServerErrorException('Error loading investments database');
+      throw new InternalServerErrorException(
+        'Error loading investments database',
+      );
     }
 
     return investments;
@@ -166,7 +207,9 @@ export class InvestmentsService {
     }
 
     if (investment.status !== 'pending') {
-      throw new BadRequestException(`Investment request is already processed (Status: ${investment.status})`);
+      throw new BadRequestException(
+        `Investment request is already processed (Status: ${investment.status})`,
+      );
     }
 
     // 2. Calculate dates in IST standard
@@ -191,7 +234,9 @@ export class InvestmentsService {
 
     if (updateError || !approved) {
       this.logger.error('Failed to approve investment:', updateError);
-      throw new InternalServerErrorException('Error completing deposit approval process');
+      throw new InternalServerErrorException(
+        'Error completing deposit approval process',
+      );
     }
 
     // 4. Log admin audit event
@@ -201,7 +246,11 @@ export class InvestmentsService {
       'APPROVE_DEPOSIT',
       approved.user_id,
       approved.id,
-      { amount: approved.amount, startDate: startStr, maturityDate: maturityStr },
+      {
+        amount: approved.amount,
+        startDate: startStr,
+        maturityDate: maturityStr,
+      },
       ipAddress,
     );
 
@@ -211,7 +260,12 @@ export class InvestmentsService {
   /**
    * Rejects a pending deposit.
    */
-  async rejectInvestment(adminId: number, id: number, dto: RejectInvestmentDto, ipAddress?: string) {
+  async rejectInvestment(
+    adminId: number,
+    id: number,
+    dto: RejectInvestmentDto,
+    ipAddress?: string,
+  ) {
     const supabase = this.supabaseService.getClient();
 
     // 1. Fetch investment
@@ -226,7 +280,9 @@ export class InvestmentsService {
     }
 
     if (investment.status !== 'pending') {
-      throw new BadRequestException(`Investment request is already processed (Status: ${investment.status})`);
+      throw new BadRequestException(
+        `Investment request is already processed (Status: ${investment.status})`,
+      );
     }
 
     // 2. Reject
@@ -243,7 +299,9 @@ export class InvestmentsService {
 
     if (updateError || !rejected) {
       this.logger.error('Failed to reject investment:', updateError);
-      throw new InternalServerErrorException('Error completing deposit rejection process');
+      throw new InternalServerErrorException(
+        'Error completing deposit rejection process',
+      );
     }
 
     // 3. Log admin audit event

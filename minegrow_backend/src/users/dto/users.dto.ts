@@ -1,4 +1,12 @@
-import { IsNotEmpty, IsString, IsEmail, IsOptional, Length, IsIn, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsEmail,
+  IsOptional,
+  Length,
+  IsIn,
+  IsBoolean,
+} from 'class-validator';
 
 export class UpdateProfileDto {
   @IsOptional()

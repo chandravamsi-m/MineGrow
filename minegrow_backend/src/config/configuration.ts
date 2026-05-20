@@ -17,7 +17,9 @@ export default () => ({
   // MED-3: Disable seed endpoint in production via env flag
   adminSeedEnabled: process.env.ADMIN_SEED_ENABLED !== 'false',
   // CRIT-5: CORS allowed origins (comma-separated)
-  corsAllowedOrigins: process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3001,http://localhost:4200',
+  corsAllowedOrigins:
+    process.env.CORS_ALLOWED_ORIGINS ||
+    'http://localhost:3001,http://localhost:4200',
   otpExpiryMinutes: parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10) || 5,
   sms: {
     provider: process.env.SMS_PROVIDER || 'DEV',
@@ -27,7 +29,9 @@ export default () => ({
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY
+      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : undefined,
   },
   roiCronSchedule: process.env.ROI_CRON_SCHEDULE || '0 0 * * *',
 });

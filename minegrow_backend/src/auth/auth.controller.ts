@@ -1,8 +1,24 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus, UseGuards, UnauthorizedException, BadRequestException, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  UnauthorizedException,
+  BadRequestException,
+  Request,
+} from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { SendOtpDto, VerifyOtpDto, AdminLoginDto, OnboardStep1Dto } from './dto/auth.dto';
+import {
+  SendOtpDto,
+  VerifyOtpDto,
+  AdminLoginDto,
+  OnboardStep1Dto,
+} from './dto/auth.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -42,7 +58,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refresh(@Body('refreshToken') refreshToken: string) {
     if (!refreshToken) {
-      throw new BadRequestException('Refresh token is required in request body');
+      throw new BadRequestException(
+        'Refresh token is required in request body',
+      );
     }
     return this.authService.refresh(refreshToken);
   }
@@ -81,7 +99,9 @@ export class AuthController {
     @Headers('x-seed-secret') secret: string,
   ) {
     if (!secret) {
-      throw new UnauthorizedException('Administrative seeding secret key is missing in x-seed-secret header');
+      throw new UnauthorizedException(
+        'Administrative seeding secret key is missing in x-seed-secret header',
+      );
     }
     return this.authService.seedAdmin(dto, secret);
   }

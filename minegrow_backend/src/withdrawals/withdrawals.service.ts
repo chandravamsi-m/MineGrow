@@ -1,8 +1,21 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, Logger, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+  Logger,
+  ForbiddenException,
+} from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
-import { CreateWithdrawalDto, RejectWithdrawalDto } from './dto/withdrawals.dto';
-import { getISTDateString, getISTDateTimeString } from '../common/utils/date.utils';
+import {
+  CreateWithdrawalDto,
+  RejectWithdrawalDto,
+} from './dto/withdrawals.dto';
+import {
+  getISTDateString,
+  getISTDateTimeString,
+} from '../common/utils/date.utils';
 
 @Injectable()
 export class WithdrawalsService {
@@ -32,8 +45,16 @@ export class WithdrawalsService {
 
     if (user.status !== 'active') {
       return {
-        roi: { eligible: false, message: 'Account is suspended or pending KYC', balance: 0 },
-        principal: { eligible: false, message: 'Account is suspended or pending KYC', balance: 0 },
+        roi: {
+          eligible: false,
+          message: 'Account is suspended or pending KYC',
+          balance: 0,
+        },
+        principal: {
+          eligible: false,
+          message: 'Account is suspended or pending KYC',
+          balance: 0,
+        },
       };
     }
 
@@ -45,19 +66,23 @@ export class WithdrawalsService {
       .single();
 
     if (walletError || !wallet) {
-      throw new InternalServerErrorException('Error loading wallet configurations');
+      throw new InternalServerErrorException(
+        'Error loading wallet configurations',
+      );
     }
 
     // 3. Evaluate ROI eligibility (30-day lock check, balance >= 100)
     let roiEligible = true;
     let roiMessage = 'Eligible for withdrawal';
-    
+
     if (Number(wallet.roi_balance) < 100) {
       roiEligible = false;
       roiMessage = 'Minimum withdrawal amount is ₹100';
     } else if (wallet.last_roi_withdrawal_at) {
       const lastWithdrawal = new Date(wallet.last_roi_withdrawal_at);
-      const nextWithdrawalDate = new Date(lastWithdrawal.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const nextWithdrawalDate = new Date(
+        lastWithdrawal.getTime() + 30 * 24 * 60 * 60 * 1000,
+      );
       const now = new Date();
       if (now < nextWithdrawalDate) {
         roiEligible = false;
@@ -71,7 +96,8 @@ export class WithdrawalsService {
 
     if (Number(wallet.principal_balance) <= 0) {
       principalEligible = false;
-      principalMessage = 'No matured principal balances available for withdrawal';
+      principalMessage =
+        'No matured principal balances available for withdrawal';
     }
 
     return {
@@ -97,7 +123,9 @@ export class WithdrawalsService {
     // 1. Revalidate eligibility
     const eligibility = await this.getEligibility(userId);
     if (!eligibility.roi.eligible) {
-      throw new BadRequestException(`Ineligible for ROI withdrawal: ${eligibility.roi.message}`);
+      throw new BadRequestException(
+        `Ineligible for ROI withdrawal: ${eligibility.roi.message}`,
+      );
     }
 
     if (dto.amount > eligibility.roi.balance) {
@@ -126,7 +154,9 @@ export class WithdrawalsService {
 
     if (insertError || !request) {
       this.logger.error('Failed to submit ROI withdrawal:', insertError);
-      throw new InternalServerErrorException('Error submitting withdrawal request');
+      throw new InternalServerErrorException(
+        'Error submitting withdrawal request',
+      );
     }
 
     return request;
@@ -141,11 +171,15 @@ export class WithdrawalsService {
     // 1. Revalidate eligibility
     const eligibility = await this.getEligibility(userId);
     if (!eligibility.principal.eligible) {
-      throw new BadRequestException(`Ineligible for principal withdrawal: ${eligibility.principal.message}`);
+      throw new BadRequestException(
+        `Ineligible for principal withdrawal: ${eligibility.principal.message}`,
+      );
     }
 
     if (dto.amount > eligibility.principal.balance) {
-      throw new BadRequestException('Requested amount exceeds matured principal balance');
+      throw new BadRequestException(
+        'Requested amount exceeds matured principal balance',
+      );
     }
 
     // 2. Validate bank account coordinates
@@ -170,7 +204,9 @@ export class WithdrawalsService {
 
     if (insertError || !request) {
       this.logger.error('Failed to submit principal withdrawal:', insertError);
-      throw new InternalServerErrorException('Error submitting withdrawal request');
+      throw new InternalServerErrorException(
+        'Error submitting withdrawal request',
+      );
     }
 
     return request;
@@ -185,15 +221,23 @@ export class WithdrawalsService {
       .order('requested_at', { ascending: false });
 
     if (error) {
-      throw new InternalServerErrorException('Error retrieving withdrawal requests');
+      throw new InternalServerErrorException(
+        'Error retrieving withdrawal requests',
+      );
     }
 
     return withdrawals;
   }
 
-  async getAllWithdrawals(filters: { status?: string; type?: string; userId?: number }) {
+  async getAllWithdrawals(filters: {
+    status?: string;
+    type?: string;
+    userId?: number;
+  }) {
     const supabase = this.supabaseService.getClient();
-    let query = supabase.from('withdrawals').select('*, users(full_name, mobile)');
+    let query = supabase
+      .from('withdrawals')
+      .select('*, users(full_name, mobile)');
 
     if (filters.status) {
       query = query.eq('status', filters.status);
@@ -205,11 +249,15 @@ export class WithdrawalsService {
       query = query.eq('user_id', filters.userId);
     }
 
-    const { data: withdrawals, error } = await query.order('requested_at', { ascending: false });
+    const { data: withdrawals, error } = await query.order('requested_at', {
+      ascending: false,
+    });
 
     if (error) {
       this.logger.error('Error fetching admin withdrawals:', error);
-      throw new InternalServerErrorException('Error loading withdrawals database');
+      throw new InternalServerErrorException(
+        'Error loading withdrawals database',
+      );
     }
 
     return withdrawals;
@@ -245,7 +293,9 @@ export class WithdrawalsService {
 
     if (error) {
       this.logger.error(`Failed to approve withdrawal ID ${id}:`, error);
-      throw new BadRequestException(error.message || 'Error processing atomic withdrawal approval');
+      throw new BadRequestException(
+        error.message || 'Error processing atomic withdrawal approval',
+      );
     }
 
     // Fetch the updated withdrawal details for returning
@@ -261,7 +311,12 @@ export class WithdrawalsService {
   /**
    * Rejects a withdrawal request. No wallet balance is deducted.
    */
-  async rejectWithdrawal(adminId: number, id: number, dto: RejectWithdrawalDto, ipAddress?: string) {
+  async rejectWithdrawal(
+    adminId: number,
+    id: number,
+    dto: RejectWithdrawalDto,
+    ipAddress?: string,
+  ) {
     const supabase = this.supabaseService.getClient();
 
     // 1. Fetch withdrawal
@@ -276,7 +331,9 @@ export class WithdrawalsService {
     }
 
     if (withdrawal.status !== 'requested') {
-      throw new BadRequestException(`Withdrawal is already processed (Status: ${withdrawal.status})`);
+      throw new BadRequestException(
+        `Withdrawal is already processed (Status: ${withdrawal.status})`,
+      );
     }
 
     // 2. Reject request
@@ -294,7 +351,9 @@ export class WithdrawalsService {
 
     if (updateError || !rejected) {
       this.logger.error('Failed to reject withdrawal:', updateError);
-      throw new InternalServerErrorException('Error rejecting withdrawal request');
+      throw new InternalServerErrorException(
+        'Error rejecting withdrawal request',
+      );
     }
 
     // 3. Write audit log
@@ -304,7 +363,11 @@ export class WithdrawalsService {
       'REJECT_WITHDRAWAL',
       rejected.user_id,
       rejected.id,
-      { amount: rejected.amount, type: rejected.withdrawal_type, reason: dto.adminNote },
+      {
+        amount: rejected.amount,
+        type: rejected.withdrawal_type,
+        reason: dto.adminNote,
+      },
       ipAddress,
     );
 
@@ -329,7 +392,9 @@ export class WithdrawalsService {
     }
 
     if (withdrawal.status !== 'approved') {
-      throw new BadRequestException(`Payout can only be marked complete after approval (Status: ${withdrawal.status})`);
+      throw new BadRequestException(
+        `Payout can only be marked complete after approval (Status: ${withdrawal.status})`,
+      );
     }
 
     // 2. Set to completed
@@ -377,7 +442,9 @@ export class WithdrawalsService {
         .maybeSingle();
 
       if (error || !account) {
-        throw new BadRequestException('Selected bank account is invalid or not owned by user');
+        throw new BadRequestException(
+          'Selected bank account is invalid or not owned by user',
+        );
       }
 
       return {
@@ -394,7 +461,9 @@ export class WithdrawalsService {
     const hasUpi = dto.upiId;
 
     if (!hasBank && !hasUpi) {
-      throw new BadRequestException('Please select a saved account or enter bank/UPI details inline');
+      throw new BadRequestException(
+        'Please select a saved account or enter bank/UPI details inline',
+      );
     }
 
     return {

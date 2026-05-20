@@ -1,8 +1,18 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { UploadsService } from '../uploads/uploads.service';
 import * as bcrypt from 'bcryptjs';
-import { UpdateProfileDto, AddBankAccountDto, RegisterDeviceTokenDto } from './dto/users.dto';
+import {
+  UpdateProfileDto,
+  AddBankAccountDto,
+  RegisterDeviceTokenDto,
+} from './dto/users.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
 @Injectable()
@@ -18,7 +28,9 @@ export class UsersService {
     const supabase = this.supabaseService.getClient();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, full_name, mobile, email, status, kyc_verified, address, created_at')
+      .select(
+        'id, full_name, mobile, email, status, kyc_verified, address, created_at',
+      )
       .eq('id', userId)
       .single();
 
@@ -46,7 +58,9 @@ export class UsersService {
       .from('users')
       .update(updateData)
       .eq('id', userId)
-      .select('id, full_name, mobile, email, status, kyc_verified, address, updated_at')
+      .select(
+        'id, full_name, mobile, email, status, kyc_verified, address, updated_at',
+      )
       .single();
 
     if (error || !user) {
@@ -57,9 +71,18 @@ export class UsersService {
     return user;
   }
 
-  async uploadKyc(userId: number, file: any, docType: 'aadhaar' | 'pan' | 'passport' | 'driving_license') {
+  async uploadKyc(
+    userId: number,
+    file: any,
+    docType: 'aadhaar' | 'pan' | 'passport' | 'driving_license',
+  ) {
     // 1. Upload to storage
-    const storagePath = await this.uploadsService.uploadFile(userId, 'kyc-documents', file, docType);
+    const storagePath = await this.uploadsService.uploadFile(
+      userId,
+      'kyc-documents',
+      file,
+      docType,
+    );
 
     const supabase = this.supabaseService.getClient();
 
@@ -77,7 +100,9 @@ export class UsersService {
 
     if (error || !doc) {
       this.logger.error('Failed to save KYC record:', error);
-      throw new InternalServerErrorException('Error creating KYC transaction record');
+      throw new InternalServerErrorException(
+        'Error creating KYC transaction record',
+      );
     }
 
     // 3. Optional: update user status to pending_kyc
@@ -162,7 +187,9 @@ export class UsersService {
 
     if (error || !newAccount) {
       this.logger.error('Failed to add bank account:', error);
-      throw new BadRequestException('Error adding bank account. Validate fields.');
+      throw new BadRequestException(
+        'Error adding bank account. Validate fields.',
+      );
     }
 
     return newAccount;
@@ -271,13 +298,11 @@ export class UsersService {
     }
 
     // Insert new
-    const { error } = await supabase
-      .from('device_tokens')
-      .insert({
-        user_id: userId,
-        fcm_token: dto.fcmToken,
-        platform: dto.platform,
-      });
+    const { error } = await supabase.from('device_tokens').insert({
+      user_id: userId,
+      fcm_token: dto.fcmToken,
+      platform: dto.platform,
+    });
 
     if (error) {
       this.logger.error('Failed to save device token:', error);

@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
 import { SupabaseModule } from './config/supabase.module';
@@ -33,8 +35,8 @@ import { AdminModule } from './admin/admin.module';
     ThrottlerModule.forRoot([
       {
         name: 'default',
-        ttl: 60000,    // 60 second window
-        limit: 60,     // 60 requests per minute per IP (global default)
+        ttl: 60000, // 60 second window
+        limit: 60, // 60 requests per minute per IP (global default)
       },
     ]),
     // Core infra modules
@@ -53,8 +55,10 @@ import { AdminModule } from './admin/admin.module';
     RoiCronModule,
     AdminModule,
   ],
+  controllers: [AppController],
   // CRIT-2: Register ThrottlerGuard globally so all routes are rate-limited by default
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

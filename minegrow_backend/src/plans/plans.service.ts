@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
 import { UpdatePlanDto } from './dto/plans.dto';
@@ -22,7 +28,10 @@ export class PlansService {
    */
   async getPlans(publicOnly = true) {
     const supabase = this.supabaseService.getClient();
-    let query = supabase.from('investment_plan').select('*').order('id', { ascending: true });
+    let query = supabase
+      .from('investment_plan')
+      .select('*')
+      .order('id', { ascending: true });
 
     if (publicOnly) {
       query = query.eq('is_active', true);
@@ -31,7 +40,9 @@ export class PlansService {
     const { data: plans, error } = await query;
     if (error) {
       this.logger.error('Failed to fetch investment plans:', error);
-      throw new InternalServerErrorException('Error retrieving investment plans');
+      throw new InternalServerErrorException(
+        'Error retrieving investment plans',
+      );
     }
 
     return plans;
@@ -54,7 +65,9 @@ export class PlansService {
     }
 
     if (publicOnly && !plan.is_active) {
-      throw new BadRequestException(`Investment plan '${plan.plan_name}' is currently paused`);
+      throw new BadRequestException(
+        `Investment plan '${plan.plan_name}' is currently paused`,
+      );
     }
 
     return plan;
@@ -64,7 +77,12 @@ export class PlansService {
    * Admin updates details of a specific investment plan in-place.
    * Logs details of previous plan parameters to audit log.
    */
-  async updatePlan(adminId: number, id: number, dto: UpdatePlanDto, ipAddress?: string) {
+  async updatePlan(
+    adminId: number,
+    id: number,
+    dto: UpdatePlanDto,
+    ipAddress?: string,
+  ) {
     const supabase = this.supabaseService.getClient();
 
     // 1. Fetch previous config for audit logging metadata
@@ -88,7 +106,9 @@ export class PlansService {
 
     if (error || !updatedPlan) {
       this.logger.error(`Failed to update plan ID ${id}:`, error);
-      throw new InternalServerErrorException('Error saving investment plan updates');
+      throw new InternalServerErrorException(
+        'Error saving investment plan updates',
+      );
     }
 
     // 3. Write audit log
@@ -126,7 +146,9 @@ export class PlansService {
 
     if (error || !updatedPlan) {
       this.logger.error(`Failed to toggle status for plan ID ${id}:`, error);
-      throw new InternalServerErrorException('Error updating plan active state');
+      throw new InternalServerErrorException(
+        'Error updating plan active state',
+      );
     }
 
     // Write audit log

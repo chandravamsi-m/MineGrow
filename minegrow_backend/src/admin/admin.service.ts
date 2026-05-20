@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
 import { FcmService } from '../notifications/fcm.service';
@@ -17,7 +23,9 @@ export class AdminService {
 
   async getUsers(search?: string, status?: string) {
     const supabase = this.supabaseService.getClient();
-    let query = supabase.from('users').select('id, full_name, mobile, email, status, kyc_verified, created_at');
+    let query = supabase
+      .from('users')
+      .select('id, full_name, mobile, email, status, kyc_verified, created_at');
 
     if (status) {
       query = query.eq('status', status);
@@ -28,7 +36,9 @@ export class AdminService {
       query = query.or(`full_name.ilike.%${search}%,mobile.ilike.%${search}%`);
     }
 
-    const { data: users, error } = await query.order('created_at', { ascending: false });
+    const { data: users, error } = await query.order('created_at', {
+      ascending: false,
+    });
 
     if (error) {
       throw new InternalServerErrorException('Error loading users list');
@@ -41,25 +51,48 @@ export class AdminService {
     const supabase = this.supabaseService.getClient();
 
     // 1. Profile
-    const { data: profile } = await supabase.from('users').select('id, full_name, mobile, email, status, kyc_verified, created_at').eq('id', userId).single();
+    const { data: profile } = await supabase
+      .from('users')
+      .select('id, full_name, mobile, email, status, kyc_verified, created_at')
+      .eq('id', userId)
+      .single();
     if (!profile) {
       throw new NotFoundException('User profile not found');
     }
 
     // 2. Wallet
-    const { data: wallet } = await supabase.from('wallets').select('*').eq('user_id', userId).maybeSingle();
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
 
     // 3. Investments
-    const { data: investments } = await supabase.from('investments').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    const { data: investments } = await supabase
+      .from('investments')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
     // 4. Withdrawals
-    const { data: withdrawals } = await supabase.from('withdrawals').select('*').eq('user_id', userId).order('requested_at', { ascending: false });
+    const { data: withdrawals } = await supabase
+      .from('withdrawals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('requested_at', { ascending: false });
 
     // 5. KYC Scans
-    const { data: kycDocs } = await supabase.from('kyc_documents').select('*').eq('user_id', userId).order('uploaded_at', { ascending: false });
+    const { data: kycDocs } = await supabase
+      .from('kyc_documents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('uploaded_at', { ascending: false });
 
     // 6. Bank accounts
-    const { data: bankAccounts } = await supabase.from('bank_accounts').select('*').eq('user_id', userId);
+    const { data: bankAccounts } = await supabase
+      .from('bank_accounts')
+      .select('*')
+      .eq('user_id', userId);
 
     return {
       profile,
@@ -71,10 +104,19 @@ export class AdminService {
     };
   }
 
-  async updateUserStatus(adminId: number, userId: number, dto: UpdateUserStatusDto, ipAddress?: string) {
+  async updateUserStatus(
+    adminId: number,
+    userId: number,
+    dto: UpdateUserStatusDto,
+    ipAddress?: string,
+  ) {
     const supabase = this.supabaseService.getClient();
 
-    const { data: user, error: fetchError } = await supabase.from('users').select('status').eq('id', userId).single();
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('status')
+      .eq('id', userId)
+      .single();
     if (fetchError || !user) {
       throw new NotFoundException('User not found');
     }
@@ -122,13 +164,19 @@ export class AdminService {
     // 2. Set user as kyc_verified
     const { data: updated, error: userError } = await supabase
       .from('users')
-      .update({ kyc_verified: true, status: 'active', updated_at: getISTDateTimeString() })
+      .update({
+        kyc_verified: true,
+        status: 'active',
+        updated_at: getISTDateTimeString(),
+      })
       .eq('id', userId)
       .select('id, full_name, mobile')
       .single();
 
     if (userError || !updated) {
-      throw new InternalServerErrorException('Error updating user KYC status flags');
+      throw new InternalServerErrorException(
+        'Error updating user KYC status flags',
+      );
     }
 
     // 3. Dispatch Push Notification
@@ -153,18 +201,29 @@ export class AdminService {
     return { message: 'KYC verified and approved successfully', user: updated };
   }
 
-  async rejectUserKyc(adminId: number, userId: number, dto: KycReviewDto, ipAddress?: string) {
+  async rejectUserKyc(
+    adminId: number,
+    userId: number,
+    dto: KycReviewDto,
+    ipAddress?: string,
+  ) {
     const supabase = this.supabaseService.getClient();
 
     // 1. Reject KYC documents
     const { error: kycError } = await supabase
       .from('kyc_documents')
-      .update({ status: 'rejected', admin_notes: dto.reason, reviewed_at: getISTDateTimeString() })
+      .update({
+        status: 'rejected',
+        admin_notes: dto.reason,
+        reviewed_at: getISTDateTimeString(),
+      })
       .eq('user_id', userId)
       .eq('status', 'pending');
 
     if (kycError) {
-      throw new InternalServerErrorException('Error updating KYC documents rejection notes');
+      throw new InternalServerErrorException(
+        'Error updating KYC documents rejection notes',
+      );
     }
 
     // 2. Revert user status to active
@@ -203,23 +262,54 @@ export class AdminService {
     const supabase = this.supabaseService.getClient();
 
     // 1. Get counts
-    const { count: activeUsers } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('status', 'active');
-    const { count: activeInvestments } = await supabase.from('investments').select('id', { count: 'exact', head: true }).eq('status', 'active');
-    const { count: pendingInvestments } = await supabase.from('investments').select('id', { count: 'exact', head: true }).eq('status', 'pending');
-    const { count: pendingWithdrawals } = await supabase.from('withdrawals').select('id', { count: 'exact', head: true }).eq('status', 'requested');
+    const { count: activeUsers } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active');
+    const { count: activeInvestments } = await supabase
+      .from('investments')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active');
+    const { count: pendingInvestments } = await supabase
+      .from('investments')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    const { count: pendingWithdrawals } = await supabase
+      .from('withdrawals')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'requested');
 
     // 2. Sums
-    const { data: deposits } = await supabase.from('investments').select('amount').in('status', ['active', 'matured']);
-    const totalDeposited = deposits ? deposits.reduce((acc, curr) => acc + Number(curr.amount), 0) : 0;
+    const { data: deposits } = await supabase
+      .from('investments')
+      .select('amount')
+      .in('status', ['active', 'matured']);
+    const totalDeposited = deposits
+      ? deposits.reduce((acc, curr) => acc + Number(curr.amount), 0)
+      : 0;
 
-    const { data: withdrawals } = await supabase.from('withdrawals').select('amount').eq('status', 'completed');
-    const totalWithdrawn = withdrawals ? withdrawals.reduce((acc, curr) => acc + Number(curr.amount), 0) : 0;
+    const { data: withdrawals } = await supabase
+      .from('withdrawals')
+      .select('amount')
+      .eq('status', 'completed');
+    const totalWithdrawn = withdrawals
+      ? withdrawals.reduce((acc, curr) => acc + Number(curr.amount), 0)
+      : 0;
 
-    const { data: activeLocks } = await supabase.from('investments').select('amount').eq('status', 'active');
-    const activeLockSum = activeLocks ? activeLocks.reduce((acc, curr) => acc + Number(curr.amount), 0) : 0;
+    const { data: activeLocks } = await supabase
+      .from('investments')
+      .select('amount')
+      .eq('status', 'active');
+    const activeLockSum = activeLocks
+      ? activeLocks.reduce((acc, curr) => acc + Number(curr.amount), 0)
+      : 0;
 
-    const { data: roiEarned } = await supabase.from('roi_history').select('roi_amount');
-    const totalRoiDistributed = roiEarned ? roiEarned.reduce((acc, curr) => acc + Number(curr.roi_amount), 0) : 0;
+    const { data: roiEarned } = await supabase
+      .from('roi_history')
+      .select('roi_amount');
+    const totalRoiDistributed = roiEarned
+      ? roiEarned.reduce((acc, curr) => acc + Number(curr.roi_amount), 0)
+      : 0;
 
     return {
       totalActiveUsers: activeUsers || 0,
@@ -238,14 +328,20 @@ export class AdminService {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    const { data: ledger, count, error } = await supabase
+    const {
+      data: ledger,
+      count,
+      error,
+    } = await supabase
       .from('wallet_ledger')
       .select('*, users(full_name, mobile)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (error) {
-      throw new InternalServerErrorException('Error loading system financial ledger');
+      throw new InternalServerErrorException(
+        'Error loading system financial ledger',
+      );
     }
 
     const total = count || 0;

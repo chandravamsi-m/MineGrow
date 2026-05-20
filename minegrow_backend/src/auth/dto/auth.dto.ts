@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsString, IsEmail, IsOptional, Length, Matches, IsIn, IsNumberString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsEmail,
+  IsOptional,
+  Length,
+  Matches,
+  IsIn,
+  IsNumberString,
+} from 'class-validator';
 
 export class SendOtpDto {
   @IsNotEmpty()
