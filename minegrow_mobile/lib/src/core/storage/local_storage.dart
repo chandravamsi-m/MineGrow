@@ -18,7 +18,7 @@ final localStorageProvider = Provider<LocalStorage>((ref) {
 });
 
 class LocalStorage {
-  const LocalStorage(this._secure);
+   LocalStorage(this._secure);
 
   final FlutterSecureStorage _secure;
 

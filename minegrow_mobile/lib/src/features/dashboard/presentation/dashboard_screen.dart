@@ -136,6 +136,34 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            // ── Active Plans section ──────────────────────────────────────
+            if (investments.any((i) => i.isActive)) ...[
+              const SizedBox(height: 14),
+              SectionTitle(
+                'Active Plans',
+                trailing: TextButton(
+                  onPressed: () => context.go(AppRoutes.investments),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'View All',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: context.tokens.brandGold,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              for (final inv in investments.where((i) => i.isActive)) ...[
+                MGActivePlanCard(record: inv),
+                const SizedBox(height: 10),
+              ],
+            ],
+            // ─────────────────────────────────────────────────────────────
             const SizedBox(height: 14),
             if (hasActivePlan)
               MGCard(

@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/router/app_router.dart';
+import '../../app/router/app_routes.dart';
 import '../../app/theme/minegrow_tokens.dart';
+import '../data/app_models.dart';
 
 class MGScaffold extends StatelessWidget {
   const MGScaffold({
@@ -31,6 +32,8 @@ class MGScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final metrics = context.metrics;
+    final isInsideMainNavigation =
+        _MainNavigationShellScope.maybeOf(context) != null;
     final content = Padding(
       padding: padding ?? EdgeInsets.all(metrics.screenPadding),
       child: body,
@@ -42,11 +45,12 @@ class MGScaffold extends StatelessWidget {
       extendBody: true,
       appBar: appBar,
       backgroundColor: context.tokens.background,
-      bottomNavigationBar:
-          bottomNavigationBar ??
-          (mainNavigationIndex == null
-              ? null
-              : MGBottomNav(currentIndex: mainNavigationIndex!)),
+      bottomNavigationBar: isInsideMainNavigation
+          ? null
+          : bottomNavigationBar ??
+                (mainNavigationIndex == null
+                    ? null
+                    : MGBottomNav(currentIndex: mainNavigationIndex!)),
       body: scrollable ? SingleChildScrollView(child: page) : page,
     );
 
@@ -69,6 +73,61 @@ class MGScaffold extends StatelessWidget {
       child: scaffold,
     );
   }
+}
+
+class MGMainNavigationShell extends StatelessWidget {
+  const MGMainNavigationShell({
+    super.key,
+    required this.location,
+    required this.child,
+  });
+
+  final String location;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MainNavigationShellScope(
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: context.tokens.background,
+        bottomNavigationBar: MGBottomNav(
+          currentIndex: _indexForLocation(location),
+        ),
+        body: child,
+      ),
+    );
+  }
+
+  static int _indexForLocation(String location) {
+    if (location == AppRoutes.investments ||
+        location == AppRoutes.investmentDetails) {
+      return 1;
+    }
+    if (location == AppRoutes.wallet || location == AppRoutes.withdrawal) {
+      return 2;
+    }
+    if (location == AppRoutes.roiHistory ||
+        location == AppRoutes.withdrawalHistory) {
+      return 3;
+    }
+    if (location == AppRoutes.profile || location == AppRoutes.notifications) {
+      return 4;
+    }
+    return 0;
+  }
+}
+
+class _MainNavigationShellScope extends InheritedWidget {
+  const _MainNavigationShellScope({required super.child});
+
+  static _MainNavigationShellScope? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_MainNavigationShellScope>();
+  }
+
+  @override
+  bool updateShouldNotify(_MainNavigationShellScope oldWidget) => false;
 }
 
 class MGAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -906,6 +965,107 @@ class AmountChip extends StatelessWidget {
     );
   }
 }
+
+// ── Active Plan Card ────────────────────────────────────────────────────────
+
+class MGActivePlanCard extends StatelessWidget {
+  const MGActivePlanCard({super.key, required this.record});
+
+  final InvestmentRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final roiStr = record.dailyRoiPct.toStringAsFixed(
+      record.dailyRoiPct % 1 == 0 ? 0 : 1,
+    );
+
+    return MGCard(
+      gradient: context.tokens.principalGradient,
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: context.tokens.brandOrange.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.account_balance_wallet_outlined,
+              color: context.tokens.brandOrange,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  formatCurrency(record.amount),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$roiStr% daily  ·  ${record.lockDays}d lock',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              MGStatusChip(status: _toMGStatus(record.status)),
+              const SizedBox(height: 5),
+              Text(
+                _formatDate(record.createdAt),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: context.tokens.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static MGStatus _toMGStatus(String status) => switch (status) {
+    'approved' || 'active' => MGStatus.approved,
+    'rejected' => MGStatus.rejected,
+    _ => MGStatus.pending,
+  };
+
+  static String _formatDate(String raw) {
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      const m = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${dt.day} ${m[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return raw;
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 class _IconTile extends StatelessWidget {
   const _IconTile({required this.icon});

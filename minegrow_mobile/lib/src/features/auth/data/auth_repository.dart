@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/dio_client.dart';
@@ -26,13 +27,24 @@ class AuthRepository {
     required String purpose,
   }) async {
     final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
-    await _apiClient.postData<void>(
-      '/auth/send-otp',
-      data: {'mobile': fullMobile, 'purpose': purpose},
-      parser: (_) {},
-    );
+    debugPrint('[REPO] sendOtp — fullMobile="$fullMobile" purpose="$purpose"');
+
+    try {
+      await _apiClient.postData<void>(
+        '/auth/send-otp',
+        data: {'mobile': fullMobile, 'purpose': purpose},
+        parser: (_) {},
+      );
+      debugPrint('[REPO] sendOtp — API call succeeded');
+    } catch (e) {
+      debugPrint('[REPO] sendOtp — API call FAILED: $e');
+      rethrow;
+    }
+
+    debugPrint('[REPO] sendOtp — writing mobile and purpose to secure storage');
     await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
     await _storage.writeString(AuthStorageKeys.otpPurpose, purpose);
+    debugPrint('[REPO] sendOtp — storage write complete');
   }
 
   Future<AuthSession> verifyOtp({
@@ -76,6 +88,9 @@ class AuthRepository {
   }
 
   String? readSavedMobile() => _storage.readString(AuthStorageKeys.mobile);
+
+  Future<String?> readSavedMobileAsync() =>
+      _storage.readStringAsync(AuthStorageKeys.mobile);
 
   String readSavedOtpPurpose() {
     return _storage.readString(AuthStorageKeys.otpPurpose) ?? 'login';

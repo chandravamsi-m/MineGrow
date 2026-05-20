@@ -19,6 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     // payload: { sub, role, tv (token_version), jti, type, iat, exp }
+    if (payload.type !== 'access') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
     const supabase = this.supabaseService.getClient();
 
     if (payload.role === 'ADMIN') {

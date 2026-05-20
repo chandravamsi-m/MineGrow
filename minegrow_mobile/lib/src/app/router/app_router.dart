@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/widgets/mg_widgets.dart';
 import '../../features/auth/presentation/login_register_screen.dart';
 import '../../features/auth/presentation/otp_verification_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
@@ -18,29 +19,12 @@ import '../../features/withdrawal/presentation/withdrawal_screen.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/storage/local_storage.dart';
 import '../../shared/data/app_models.dart';
+import 'app_routes.dart';
 
-abstract final class AppRoutes {
-  static const splash = '/';
-  static const auth = '/auth';
-  static const otp = '/otp';
-  static const onboarding = '/onboard';
-  static const dashboard = '/dashboard';
-  static const investments = '/investments';
-  static const investmentDetails = '/investments/create';
-  static const wallet = '/wallet';
-  static const roiHistory = '/history/roi';
-  static const withdrawal = '/withdraw';
-  static const withdrawalHistory = '/history/withdrawals';
-  static const profile = '/profile';
-  static const notifications = '/notifications';
-}
+export 'app_routes.dart';
 
 /// Routes that do not require authentication
-const _publicRoutes = {
-  AppRoutes.splash,
-  AppRoutes.auth,
-  AppRoutes.otp,
-};
+const _publicRoutes = {AppRoutes.splash, AppRoutes.auth, AppRoutes.otp};
 
 /// Routes that require authentication
 const _protectedRoutes = {
@@ -67,24 +51,38 @@ final routerProvider = Provider<GoRouter>((ref) {
     // Every navigation attempt checks for a valid access token in secure storage.
     redirect: (context, state) async {
       final location = state.matchedLocation;
+      debugPrint('[ROUTER] redirect triggered — location="$location"');
 
       // Read token from secure storage (async)
-      final accessToken = await storage.readStringAsync(AuthStorageKeys.accessToken);
+      final accessToken = await storage.readStringAsync(
+        AuthStorageKeys.accessToken,
+      );
       final isLoggedIn = accessToken != null && accessToken.isNotEmpty;
       final isPublicRoute = _publicRoutes.contains(location);
+      final isProtectedRoute = _protectedRoutes.contains(location);
+
+      debugPrint(
+        '[ROUTER] isLoggedIn=$isLoggedIn isPublicRoute=$isPublicRoute location="$location"',
+      );
 
       // Unauthenticated user trying to access a protected route → send to auth
-      if (!isLoggedIn && !isPublicRoute) {
+      if (!isLoggedIn && isProtectedRoute) {
+        debugPrint(
+          '[ROUTER] REDIRECT → ${AppRoutes.auth} (not logged in, protected route)',
+        );
         return AppRoutes.auth;
       }
 
       // Authenticated user trying to access public auth routes → send to dashboard
       // (splash screen is excluded — it handles its own routing logic)
       if (isLoggedIn && isPublicRoute && location != AppRoutes.splash) {
+        debugPrint(
+          '[ROUTER] REDIRECT → ${AppRoutes.dashboard} (logged in, public route)',
+        );
         return AppRoutes.dashboard;
       }
 
-      // No redirect needed
+      debugPrint('[ROUTER] NO redirect — allowing navigation to "$location"');
       return null;
     },
 
@@ -109,54 +107,62 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.dashboard,
-        name: 'dashboard',
-        builder: (context, state) => const DashboardScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.investments,
-        name: 'investments',
-        builder: (context, state) => const InvestmentPlansScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.investmentDetails,
-        name: 'investment-details',
-        builder: (context, state) => InvestmentDetailsScreen(
-          initialPlan: state.extra is InvestmentPlan
-              ? state.extra! as InvestmentPlan
-              : null,
+      ShellRoute(
+        builder: (context, state, child) => MGMainNavigationShell(
+          location: state.matchedLocation,
+          child: child,
         ),
-      ),
-      GoRoute(
-        path: AppRoutes.wallet,
-        name: 'wallet',
-        builder: (context, state) => const WalletScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.roiHistory,
-        name: 'roi-history',
-        builder: (context, state) => const RoiHistoryScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.withdrawal,
-        name: 'withdrawal',
-        builder: (context, state) => const WithdrawalScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.withdrawalHistory,
-        name: 'withdrawal-history',
-        builder: (context, state) => const WithdrawalHistoryScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.profile,
-        name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.notifications,
-        name: 'notifications',
-        builder: (context, state) => const NotificationsScreen(),
+        routes: [
+          GoRoute(
+            path: AppRoutes.dashboard,
+            name: 'dashboard',
+            builder: (context, state) => const DashboardScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.investments,
+            name: 'investments',
+            builder: (context, state) => const InvestmentPlansScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.investmentDetails,
+            name: 'investment-details',
+            builder: (context, state) => InvestmentDetailsScreen(
+              initialPlan: state.extra is InvestmentPlan
+                  ? state.extra! as InvestmentPlan
+                  : null,
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.wallet,
+            name: 'wallet',
+            builder: (context, state) => const WalletScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.roiHistory,
+            name: 'roi-history',
+            builder: (context, state) => const RoiHistoryScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.withdrawal,
+            name: 'withdrawal',
+            builder: (context, state) => const WithdrawalScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.withdrawalHistory,
+            name: 'withdrawal-history',
+            builder: (context, state) => const WithdrawalHistoryScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.profile,
+            name: 'profile',
+            builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.notifications,
+            name: 'notifications',
+            builder: (context, state) => const NotificationsScreen(),
+          ),
+        ],
       ),
     ],
   );

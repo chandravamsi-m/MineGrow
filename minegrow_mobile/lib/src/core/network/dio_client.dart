@@ -34,7 +34,61 @@ final dioProvider = Provider<Dio>((ref) {
         logger.d('${options.method} ${options.uri}');
         handler.next(options);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
+        final statusCode = error.response?.statusCode;
+        final requestPath = error.requestOptions.path;
+
+        // Attempt token refresh on 401, but never recurse into the refresh endpoint itself.
+        if (statusCode == 401 && !requestPath.contains('/auth/refresh')) {
+          try {
+            final refreshToken =
+                await storage.readStringAsync(AuthStorageKeys.refreshToken);
+
+            if (refreshToken == null || refreshToken.isEmpty) {
+              await storage.removeAll();
+              handler.next(error);
+              return;
+            }
+
+            final refreshResponse = await dio.post<dynamic>(
+              '/auth/refresh',
+              data: {'refreshToken': refreshToken},
+            );
+
+            // NestJS TransformInterceptor wraps responses as
+            // { success, data: { accessToken, refreshToken }, ... }
+            final responseBody =
+                refreshResponse.data as Map<String, dynamic>?;
+            final payload =
+                (responseBody?['data'] as Map<String, dynamic>?) ??
+                responseBody;
+            final newAccessToken = payload?['accessToken'] as String?;
+            final newRefreshToken = payload?['refreshToken'] as String?;
+
+            if (newAccessToken == null ||
+                newAccessToken.isEmpty ||
+                newRefreshToken == null ||
+                newRefreshToken.isEmpty) {
+              await storage.removeAll();
+              handler.next(error);
+              return;
+            }
+
+            await storage.writeString(AuthStorageKeys.accessToken, newAccessToken);
+            await storage.writeString(AuthStorageKeys.refreshToken, newRefreshToken);
+
+            // Retry the original request with the fresh access token.
+            error.requestOptions.headers['Authorization'] =
+                'Bearer $newAccessToken';
+            final retryResponse = await dio.fetch(error.requestOptions);
+            handler.resolve(retryResponse);
+            return;
+          } catch (_) {
+            // Refresh failed (token expired / revoked) — clear session.
+            await storage.removeAll();
+          }
+        }
+
         logger.e(
           '${error.requestOptions.method} ${error.requestOptions.uri}',
           error: error,
