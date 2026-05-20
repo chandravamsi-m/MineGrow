@@ -5,6 +5,7 @@ import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../investments/data/investments_repository.dart';
 import '../data/wallet_repository.dart';
 
 class WalletScreen extends ConsumerWidget {
@@ -13,6 +14,7 @@ class WalletScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final walletState = ref.watch(walletSummaryProvider);
+    final investmentsState = ref.watch(ownInvestmentsProvider);
 
     return MGScaffold(
       appBar: const MGAppBar(title: 'My Wallet'),
@@ -30,6 +32,14 @@ class WalletScreen extends ConsumerWidget {
             onAction: () => ref.invalidate(walletSummaryProvider),
           ),
           data: (wallet) {
+            final activePlans = investmentsState.maybeWhen(
+              data: (list) => list.where((i) => i.isActive).toList(),
+              orElse: () => const <InvestmentRecord>[],
+            );
+            final roiLabel = activePlans.isNotEmpty
+                ? '+${activePlans.first.dailyRoiPct.toStringAsFixed(activePlans.first.dailyRoiPct % 1 == 0 ? 0 : 1)}% daily'
+                : null;
+
             if (wallet.totalBalance == 0 && wallet.totalRoiEarned == 0) {
               return MGFriendlyState(
                 icon: Icons.wallet_outlined,
@@ -54,26 +64,27 @@ class WalletScreen extends ConsumerWidget {
                               style: Theme.of(context).textTheme.labelSmall,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: context.tokens.success.withValues(
-                                alpha: 0.18,
+                          if (roiLabel != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
                               ),
-                              borderRadius: BorderRadius.circular(8),
+                              decoration: BoxDecoration(
+                                color: context.tokens.success.withValues(
+                                  alpha: 0.18,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                roiLabel,
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: context.tokens.success,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
                             ),
-                            child: Text(
-                              '+12.5%',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: context.tokens.success,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
