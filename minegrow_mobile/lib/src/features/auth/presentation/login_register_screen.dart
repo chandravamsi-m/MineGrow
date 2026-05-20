@@ -29,38 +29,49 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
 
   Future<void> _submit() async {
     final phone = _phoneController.text.trim();
+    debugPrint('[LOGIN] _submit() called — raw input: "$phone"');
 
     setState(() {
-      // MED-5: Proper regex validation — must be exactly 10 numeric digits
       final digitsOnly = RegExp(r'^\d{10}$');
       if (phone.isEmpty || !digitsOnly.hasMatch(phone)) {
         _errorText = 'Enter a valid 10 digit mobile number to continue.';
+        debugPrint('[LOGIN] Validation failed: "$phone" is not a valid 10-digit number');
         return;
       }
-
       _errorText = null;
       _isSubmitting = true;
     });
 
     if (_errorText != null) {
+      debugPrint('[LOGIN] Aborting — validation error is set, not calling sendOtp');
       setState(() => _isSubmitting = false);
       return;
     }
+
+    debugPrint('[LOGIN] Validation passed — calling sendOtp for $phone');
 
     try {
       final auth = ref.read(authRepositoryProvider);
       await auth.sendOtp(mobile: phone, purpose: 'login');
 
+      debugPrint('[LOGIN] sendOtp succeeded — mounted=$mounted, navigating to ${AppRoutes.otp}');
       if (mounted) {
         context.go(AppRoutes.otp);
+        debugPrint('[LOGIN] context.go(${AppRoutes.otp}) called');
+      } else {
+        debugPrint('[LOGIN] Widget unmounted after sendOtp — navigation skipped');
       }
     } on ApiException catch (error) {
+      debugPrint('[LOGIN] ApiException caught — status=${error.statusCode} message="${error.message}"');
       setState(() => _errorText = error.message);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[LOGIN] Unexpected error caught: $e');
+      debugPrint('[LOGIN] Stack trace: $st');
       setState(() {
         _errorText = 'Could not reach the MineGrow server. Try again.';
       });
     } finally {
+      debugPrint('[LOGIN] finally block — mounted=$mounted');
       if (mounted) {
         setState(() => _isSubmitting = false);
       }

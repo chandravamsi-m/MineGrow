@@ -2,7 +2,6 @@ import { Injectable, BadRequestException, UnauthorizedException, InternalServerE
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClientService } from '../config/supabase.client';
-import { SmsService } from '../sms/sms.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { SendOtpDto, VerifyOtpDto, AdminLoginDto, OnboardStep1Dto } from './dto/auth.dto';
@@ -14,29 +13,19 @@ export class AuthService {
 
   constructor(
     private readonly supabaseService: SupabaseClientService,
-    private readonly smsService: SmsService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
 
   /**
    * Sends secure SMS OTP to the requested mobile number using Supabase Auth.
-   * Supabase automatically routes it through the Twilio gateway.
+   * Supabase dispatches SMS through the Twilio provider configured in the Supabase dashboard.
    */
   async sendOtp(dto: SendOtpDto) {
-    const supabase = this.supabaseService.getClient();
+    const supabaseAuth = this.supabaseService.getAuthClient();
 
-    // Check if user exists in the custom users table
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('mobile', dto.mobile)
-      .maybeSingle();
-
-    const isExistingUser = !!user;
-
-    // Trigger Supabase OTP send
-    const { error } = await supabase.auth.signInWithOtp({
+    // Trigger Supabase OTP send. Supabase handles OTP generation, expiry, and Twilio delivery.
+    const { error } = await supabaseAuth.auth.signInWithOtp({
       phone: dto.mobile,
     });
 
@@ -45,11 +34,7 @@ export class AuthService {
       throw new InternalServerErrorException(`Failed to dispatch OTP: ${error.message}`);
     }
 
-    return {
-      message: 'OTP dispatched successfully via Supabase',
-      mobile: dto.mobile,
-      isExistingUser,
-    };
+    return { message: 'OTP dispatched successfully via Supabase' };
   }
 
   /**
@@ -58,15 +43,16 @@ export class AuthService {
    */
   async verifyOtp(dto: VerifyOtpDto) {
     const supabase = this.supabaseService.getClient();
+    const supabaseAuth = this.supabaseService.getAuthClient();
 
-    // 1. Verify OTP via Supabase
-    const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+    // 1. Verify OTP via Supabase Auth.
+    const { data: authData, error: authError } = await supabaseAuth.auth.verifyOtp({
       phone: dto.mobile,
       token: dto.otp,
       type: 'sms',
     });
 
-    if (authError || !authData) {
+    if (authError || !authData.session) {
       this.logger.error(`Supabase verifyOtp failed for ${dto.mobile}:`, authError);
       throw new BadRequestException(authError?.message || 'Invalid or expired OTP');
     }
@@ -233,15 +219,26 @@ export class AuthService {
     });
 
     if (error) {
-      // Fallback: direct update if RPC not available
-      const { error: updateError } = await supabase
+      // Fallback: read current version then increment directly
+      const { data: record, error: readError } = await supabase
         .from(table)
-        .update({ token_version: supabase.rpc('token_version + 1') })
-        .eq('id', userId);
+        .select('token_version')
+        .eq('id', userId)
+        .single();
 
-      if (updateError) {
-        this.logger.error(`Failed to invalidate tokens for ${role} ID ${userId}:`, updateError);
-        // Still return success to client — token will expire naturally
+      if (readError || !record) {
+        this.logger.error(`Failed to read token_version for ${role} ID ${userId} during logout:`, readError);
+        // Still return success — token will expire naturally
+      } else {
+        const { error: updateError } = await supabase
+          .from(table)
+          .update({ token_version: record.token_version + 1 })
+          .eq('id', userId);
+
+        if (updateError) {
+          this.logger.error(`Failed to invalidate tokens for ${role} ID ${userId}:`, updateError);
+          // Still return success — token will expire naturally
+        }
       }
     }
 

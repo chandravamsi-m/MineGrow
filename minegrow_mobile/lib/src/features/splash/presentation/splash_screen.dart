@@ -10,11 +10,38 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 
-class SplashScreen extends ConsumerWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndNavigate();
+  }
+
+  Future<void> _checkAuthAndNavigate() async {
+    // Minimum branding display time + read token concurrently
+    final storage = ref.read(localStorageProvider);
+    final results = await Future.wait([
+      storage.readStringAsync(AuthStorageKeys.accessToken),
+      Future<void>.delayed(const Duration(milliseconds: 2000)),
+    ]);
+
+    if (!mounted) return;
+
+    final accessToken = results[0] as String?;
+    final isLoggedIn = accessToken != null && accessToken.isNotEmpty;
+
+    context.go(isLoggedIn ? AppRoutes.dashboard : AppRoutes.auth);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MGScaffold(
       backFallbackRoute: null,
       scrollable: false,
@@ -47,20 +74,15 @@ class SplashScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 28),
-          MGProgressBar(value: 0.58),
-          const SizedBox(height: 28),
-          MGGradientButton(
-            label: 'Continue',
-            onPressed: () async {
-              // Warm the secure storage cache before the router redirect guard checks it
-              final storage = ref.read(localStorageProvider);
-              await storage.readStringAsync(AuthStorageKeys.accessToken);
-
-              if (context.mounted) {
-                context.go(AppRoutes.auth);
-              }
-            },
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              backgroundColor: context.tokens.surfaceSoft,
+              valueColor: AlwaysStoppedAnimation(context.tokens.brandOrange),
+            ),
           ),
+          const SizedBox(height: 28),
         ],
       ),
     );

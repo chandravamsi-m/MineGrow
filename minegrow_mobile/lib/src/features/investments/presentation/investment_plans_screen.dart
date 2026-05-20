@@ -14,6 +14,7 @@ class InvestmentPlansScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final plansState = ref.watch(investmentPlansProvider);
+    final ownState = ref.watch(ownInvestmentsProvider);
 
     return MGScaffold(
       appBar: const MGAppBar(title: 'Investment Plans'),
@@ -23,6 +24,48 @@ class InvestmentPlansScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Your Investments section ──────────────────────────────────
+            ownState.when(
+              loading: () => const MGLoadingList(itemCount: 1),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (records) {
+                if (records.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionTitle(
+                      'Your Investments',
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: context.tokens.brandGold.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${records.length} total',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: context.tokens.brandGold,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    for (final rec in records) ...[
+                      MGActivePlanCard(record: rec),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: 6),
+                    Divider(color: context.tokens.borderMuted),
+                    const SizedBox(height: 14),
+                  ],
+                );
+              },
+            ),
+            // ── Available Plans ───────────────────────────────────────────
             Text(
               'Choose a plan and start investing',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(

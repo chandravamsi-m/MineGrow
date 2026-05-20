@@ -15,7 +15,7 @@ async function bootstrap() {
   // 2. Enable Cross-Origin Resource Sharing (CORS) — CRIT-5: Restrict to known origins
   const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
     ? process.env.CORS_ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:3001', 'http://localhost:4200'];
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'];
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (mobile apps, curl, Postman)
