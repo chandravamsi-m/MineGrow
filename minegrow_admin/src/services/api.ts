@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3000/api/v1';
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -26,12 +26,9 @@ class ApiService {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (response.status === 401) {
-      // Automatic session cleanup on unauthorized
+      // Automatic session cleanup on unauthorized — React state handles showing the login page
       localStorage.removeItem('admin_access_token');
       localStorage.removeItem('admin_user');
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
       throw new Error('Session expired. Please log in again.');
     }
 

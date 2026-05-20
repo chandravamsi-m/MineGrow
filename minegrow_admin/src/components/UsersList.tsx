@@ -80,7 +80,15 @@ export const UsersList: React.FC = () => {
     try {
       const response = await api.get<any>(`admin/users/${userId}`);
       if (response.success && response.data) {
-        setSelectedUser(response.data);
+        // Backend returns: { profile, wallet, investments, withdrawals, kycDocs, bankAccounts }
+        const { profile, kycDocs } = response.data;
+        // Build a flat shape the drawer expects
+        const latestKyc = kycDocs && kycDocs.length > 0 ? kycDocs[0] : null;
+        setSelectedUser({
+          ...profile,
+          kyc_document_url: latestKyc?.document_url || null,
+          kyc_rejection_reason: latestKyc?.admin_notes || null,
+        });
       } else {
         alert(response.message || 'Failed to fetch user details');
       }

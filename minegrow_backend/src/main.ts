@@ -5,6 +5,12 @@ import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as dotenv from 'dotenv';
+
+// Load .env BEFORE NestFactory.create so process.env is fully populated
+// when we read CORS_ALLOWED_ORIGINS (ConfigModule runs inside the module)
+dotenv.config();
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,12 +20,15 @@ async function bootstrap() {
 
   // 2. Enable Cross-Origin Resource Sharing (CORS) — CRIT-5: Restrict to known origins
   const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
-    ? process.env.CORS_ALLOWED_ORIGINS.split(',')
+    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
     : [
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:4200',
+        'http://localhost:5173', // Admin panel (Vite default)
+        'http://localhost:5174', // Admin panel (Vite fallback)
       ];
+
   app.enableCors({
     origin: (
       origin: string | undefined,

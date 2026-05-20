@@ -7,7 +7,7 @@ import { DepositsQueue } from './components/DepositsQueue';
 import { WithdrawalsQueue } from './components/WithdrawalsQueue';
 import { PlansManager } from './components/PlansManager';
 import { LedgerViewer } from './components/LedgerViewer';
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 
 
 const MainAppContent: React.FC = () => {
@@ -17,6 +17,7 @@ const MainAppContent: React.FC = () => {
   // Login form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -144,13 +145,25 @@ const MainAppContent: React.FC = () => {
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/40"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-10 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500/40"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors duration-200 cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
               </div>
             </div>
 
