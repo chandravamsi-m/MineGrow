@@ -1,4 +1,11 @@
-import { Controller, Post, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { RoiCronService } from './roi-cron.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -14,10 +21,7 @@ export class RoiCronController {
 
   @Post('trigger')
   @HttpCode(HttpStatus.OK)
-  async triggerManualRoi(
-    @CurrentUser() admin: any,
-    @Req() req: any,
-  ) {
+  async triggerManualRoi(@CurrentUser() admin: any, @Req() req: any) {
     const ip = req.ip || req.socket.remoteAddress;
     return this.roiCronService.executeRoiRoutine(admin.id, ip);
   }

@@ -1,4 +1,10 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { getISTDateTimeString } from '../utils/date.utils';
 
@@ -20,7 +26,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const res = exception.getResponse();
       if (typeof res === 'object' && res !== null) {
         const resMessage = (res as any).message;
-        message = Array.isArray(resMessage) ? resMessage.join(', ') : resMessage || exception.message;
+        message = Array.isArray(resMessage)
+          ? resMessage.join(', ')
+          : resMessage || exception.message;
         code = (res as any).error || exception.name || 'HTTP_EXCEPTION';
         if (Array.isArray(resMessage)) {
           code = 'VALIDATION_ERROR';

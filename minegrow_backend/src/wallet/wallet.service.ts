@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 
 @Injectable()
@@ -11,7 +15,9 @@ export class WalletService {
     const supabase = this.supabaseService.getClient();
     const { data: wallet, error } = await supabase
       .from('wallets')
-      .select('roi_balance, principal_balance, total_roi_earned, last_roi_withdrawal_at, updated_at')
+      .select(
+        'roi_balance, principal_balance, total_roi_earned, last_roi_withdrawal_at, updated_at',
+      )
       .eq('user_id', userId)
       .single();
 
@@ -28,7 +34,11 @@ export class WalletService {
     const to = from + limit - 1;
 
     // Get count and data
-    const { data: ledger, count, error } = await supabase
+    const {
+      data: ledger,
+      count,
+      error,
+    } = await supabase
       .from('wallet_ledger')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
@@ -37,7 +47,9 @@ export class WalletService {
 
     if (error) {
       this.logger.error('Error fetching wallet ledger:', error);
-      throw new InternalServerErrorException('Error loading transaction history');
+      throw new InternalServerErrorException(
+        'Error loading transaction history',
+      );
     }
 
     const total = count || 0;
@@ -68,11 +80,15 @@ export class WalletService {
       query = query.lte('credited_date', endDate);
     }
 
-    const { data: history, error } = await query.order('credited_date', { ascending: false });
+    const { data: history, error } = await query.order('credited_date', {
+      ascending: false,
+    });
 
     if (error) {
       this.logger.error('Error fetching ROI history:', error);
-      throw new InternalServerErrorException('Error loading daily ROI earnings records');
+      throw new InternalServerErrorException(
+        'Error loading daily ROI earnings records',
+      );
     }
 
     return history;

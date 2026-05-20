@@ -12,10 +12,14 @@ export class SupabaseClientService implements OnModuleInit {
   onModuleInit() {
     const supabaseUrl = this.configService.get<string>('supabase.url');
     const anonKey = this.configService.get<string>('supabase.anonKey');
-    const serviceRoleKey = this.configService.get<string>('supabase.serviceRoleKey');
+    const serviceRoleKey = this.configService.get<string>(
+      'supabase.serviceRoleKey',
+    );
 
     if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-      throw new Error('SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY must be defined in env variables');
+      throw new Error(
+        'SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY must be defined in env variables',
+      );
     }
 
     // Initialize the client with the service role key to bypass RLS policies

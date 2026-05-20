@@ -1,4 +1,17 @@
-import { Controller, Get, Put, Post, Delete, Patch, Body, Param, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Post,
+  Delete,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -6,7 +19,11 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UpdateProfileDto, AddBankAccountDto, RegisterDeviceTokenDto } from './dto/users.dto';
+import {
+  UpdateProfileDto,
+  AddBankAccountDto,
+  RegisterDeviceTokenDto,
+} from './dto/users.dto';
 
 @Controller('users')
 @ApiBearerAuth('JWT-auth')
@@ -29,7 +46,8 @@ export class UsersController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadKyc(
     @CurrentUser() user: any,
-    @Body('docType') docType: 'aadhaar' | 'pan' | 'passport' | 'driving_license',
+    @Body('docType')
+    docType: 'aadhaar' | 'pan' | 'passport' | 'driving_license',
     @UploadedFile() file: any,
   ) {
     if (!file) {
@@ -37,7 +55,9 @@ export class UsersController {
     }
     const validTypes = ['aadhaar', 'pan', 'passport', 'driving_license'];
     if (!docType || !validTypes.includes(docType.toLowerCase())) {
-      throw new BadRequestException(`Valid docType is required (${validTypes.join(', ')})`);
+      throw new BadRequestException(
+        `Valid docType is required (${validTypes.join(', ')})`,
+      );
     }
     return this.usersService.uploadKyc(user.id, file, docType);
   }
@@ -53,7 +73,10 @@ export class UsersController {
   }
 
   @Post('bank-accounts')
-  async addBankAccount(@CurrentUser() user: any, @Body() dto: AddBankAccountDto) {
+  async addBankAccount(
+    @CurrentUser() user: any,
+    @Body() dto: AddBankAccountDto,
+  ) {
     return this.usersService.addBankAccount(user.id, dto);
   }
 
@@ -63,12 +86,18 @@ export class UsersController {
   }
 
   @Patch('bank-accounts/:id/default')
-  async setDefaultBankAccount(@CurrentUser() user: any, @Param('id') id: string) {
+  async setDefaultBankAccount(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
     return this.usersService.setDefaultBankAccount(user.id, parseInt(id, 10));
   }
 
   @Post('device-token')
-  async registerDeviceToken(@CurrentUser() user: any, @Body() dto: RegisterDeviceTokenDto) {
+  async registerDeviceToken(
+    @CurrentUser() user: any,
+    @Body() dto: RegisterDeviceTokenDto,
+  ) {
     return this.usersService.registerDeviceToken(user.id, dto);
   }
 }

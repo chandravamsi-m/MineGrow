@@ -15,9 +15,16 @@ async function bootstrap() {
   // 2. Enable Cross-Origin Resource Sharing (CORS) — CRIT-5: Restrict to known origins
   const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
     ? process.env.CORS_ALLOWED_ORIGINS.split(',')
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'];
+    : [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:4200',
+      ];
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       // Allow requests with no origin (mobile apps, curl, Postman)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -50,16 +57,22 @@ async function bootstrap() {
   // 7. Initialize Swagger API Documentation UI (Section 12: Week 4)
   const config = new DocumentBuilder()
     .setTitle('MineGrow Mining API')
-    .setDescription('Definitive backend technical reference documentation for the MineGrow Mining Investment App ecosystem.')
+    .setDescription(
+      'Definitive backend technical reference documentation for the MineGrow Mining Investment App ecosystem.',
+    )
     .setVersion('1.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      name: 'JWT',
-      description: 'Enter your custom JWT token to access protected user/admin routes',
-      in: 'header',
-    }, 'JWT-auth')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description:
+          'Enter your custom JWT token to access protected user/admin routes',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -67,7 +80,11 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Mining App Backend successfully listening on: http://localhost:${port}/api/v1`);
-  console.log(`Swagger Interactive Documentation available at: http://localhost:${port}/api-docs`);
+  console.log(
+    `Mining App Backend successfully listening on: http://localhost:${port}/api/v1`,
+  );
+  console.log(
+    `Swagger Interactive Documentation available at: http://localhost:${port}/api-docs`,
+  );
 }
 bootstrap();

@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsNumber, IsString, IsOptional, Length, Min } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsOptional,
+  Length,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateWithdrawalDto {

@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -34,7 +46,12 @@ export class AdminController {
     @Req() req: any,
   ) {
     const ip = req.ip || req.socket.remoteAddress;
-    return this.adminService.updateUserStatus(admin.id, parseInt(id, 10), dto, ip);
+    return this.adminService.updateUserStatus(
+      admin.id,
+      parseInt(id, 10),
+      dto,
+      ip,
+    );
   }
 
   @Post('users/:id/kyc/verify')

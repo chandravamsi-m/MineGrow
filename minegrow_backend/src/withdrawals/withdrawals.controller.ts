@@ -1,11 +1,25 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, Res, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  Res,
+  HttpStatus,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
 import { WithdrawalsService } from './withdrawals.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CreateWithdrawalDto, RejectWithdrawalDto } from './dto/withdrawals.dto';
+import {
+  CreateWithdrawalDto,
+  RejectWithdrawalDto,
+} from './dto/withdrawals.dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -20,13 +34,19 @@ export class WithdrawalsController {
 
   @Post('withdrawals/roi')
   @Roles('USER')
-  async requestRoiWithdrawal(@CurrentUser() user: any, @Body() dto: CreateWithdrawalDto) {
+  async requestRoiWithdrawal(
+    @CurrentUser() user: any,
+    @Body() dto: CreateWithdrawalDto,
+  ) {
     return this.withdrawalsService.requestRoiWithdrawal(user.id, dto);
   }
 
   @Post('withdrawals/principal')
   @Roles('USER')
-  async requestPrincipalWithdrawal(@CurrentUser() user: any, @Body() dto: CreateWithdrawalDto) {
+  async requestPrincipalWithdrawal(
+    @CurrentUser() user: any,
+    @Body() dto: CreateWithdrawalDto,
+  ) {
     return this.withdrawalsService.requestPrincipalWithdrawal(user.id, dto);
   }
 
@@ -44,7 +64,11 @@ export class WithdrawalsController {
     @Query('userId') userId?: string,
   ) {
     const userFilter = userId ? parseInt(userId, 10) : undefined;
-    return this.withdrawalsService.getAllWithdrawals({ status, type, userId: userFilter });
+    return this.withdrawalsService.getAllWithdrawals({
+      status,
+      type,
+      userId: userFilter,
+    });
   }
 
   @Get('admin/withdrawals/pending')
@@ -61,7 +85,11 @@ export class WithdrawalsController {
     @Req() req: any,
   ) {
     const ip = req.ip || req.socket.remoteAddress;
-    return this.withdrawalsService.approveWithdrawal(admin.id, parseInt(id, 10), ip);
+    return this.withdrawalsService.approveWithdrawal(
+      admin.id,
+      parseInt(id, 10),
+      ip,
+    );
   }
 
   @Post('admin/withdrawals/:id/reject')
@@ -73,7 +101,12 @@ export class WithdrawalsController {
     @Req() req: any,
   ) {
     const ip = req.ip || req.socket.remoteAddress;
-    return this.withdrawalsService.rejectWithdrawal(admin.id, parseInt(id, 10), dto, ip);
+    return this.withdrawalsService.rejectWithdrawal(
+      admin.id,
+      parseInt(id, 10),
+      dto,
+      ip,
+    );
   }
 
   @Post('admin/withdrawals/:id/complete')
@@ -84,7 +117,11 @@ export class WithdrawalsController {
     @Req() req: any,
   ) {
     const ip = req.ip || req.socket.remoteAddress;
-    return this.withdrawalsService.completeWithdrawal(admin.id, parseInt(id, 10), ip);
+    return this.withdrawalsService.completeWithdrawal(
+      admin.id,
+      parseInt(id, 10),
+      ip,
+    );
   }
 
   @Get('admin/withdrawals/export')
@@ -94,10 +131,14 @@ export class WithdrawalsController {
     @Query('type') type: string,
     @Res() res: any,
   ) {
-    const data = await this.withdrawalsService.getAllWithdrawals({ status, type });
+    const data = await this.withdrawalsService.getAllWithdrawals({
+      status,
+      type,
+    });
 
     // Build standard CSV
-    let csv = 'ID,User ID,Full Name,Mobile,Amount,Type,Status,Bank Name,Account Number,IFSC Code,UPI ID,Requested At\n';
+    let csv =
+      'ID,User ID,Full Name,Mobile,Amount,Type,Status,Bank Name,Account Number,IFSC Code,UPI ID,Requested At\n';
     for (const row of data) {
       const u = row.users || {};
       const escName = (u.full_name || '').replace(/"/g, '""');

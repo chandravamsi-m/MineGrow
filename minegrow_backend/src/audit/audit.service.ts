@@ -22,17 +22,15 @@ export class AuditService {
   ): Promise<void> {
     const supabase = this.supabaseService.getClient();
 
-    const { error } = await supabase
-      .from('audit_logs')
-      .insert({
-        actor_type: actorType,
-        actor_id: actorId,
-        target_user_id: targetUserId,
-        action,
-        reference_id: referenceId,
-        metadata,
-        ip_address: ipAddress || null,
-      });
+    const { error } = await supabase.from('audit_logs').insert({
+      actor_type: actorType,
+      actor_id: actorId,
+      target_user_id: targetUserId,
+      action,
+      reference_id: referenceId,
+      metadata,
+      ip_address: ipAddress || null,
+    });
 
     if (error) {
       this.logger.error(`Audit logs write failed for action ${action}:`, error);

@@ -20,10 +20,12 @@ export class RoiCronService {
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async runDailyRoi() {
-    this.logger.log('Triggering scheduled daily ROI calculation and maturity cron...');
+    this.logger.log(
+      'Triggering scheduled daily ROI calculation and maturity cron...',
+    );
     try {
       await this.executeRoiRoutine(null);
-    } catch (e) {
+    } catch (e: unknown) {
       this.logger.error('Scheduled daily ROI execution failed:', e);
     }
   }
@@ -43,11 +45,15 @@ export class RoiCronService {
       });
 
       if (error) {
-        this.logger.error(`PG Database error executing daily ROI credits: ${error.message}`);
+        this.logger.error(
+          `PG Database error executing daily ROI credits: ${error.message}`,
+        );
         throw new Error(error.message);
       }
 
-      this.logger.log(`Daily ROI PG credit transaction complete: ${JSON.stringify(data)}`);
+      this.logger.log(
+        `Daily ROI PG credit transaction complete: ${JSON.stringify(data)}`,
+      );
 
       // 2. Query and dispatch notifications for daily ROI earnings
       const { data: credits } = await supabase
@@ -59,15 +65,16 @@ export class RoiCronService {
         // Group by user_id to prevent multi-device token spamming
         const userEarnings: Record<number, number> = {};
         for (const c of credits) {
-          userEarnings[c.user_id] = (userEarnings[c.user_id] || 0) + Number(c.roi_amount);
+          userEarnings[c.user_id] =
+            (userEarnings[c.user_id] || 0) + Number(c.roi_amount);
         }
 
         for (const [userIdStr, amount] of Object.entries(userEarnings)) {
           const userId = parseInt(userIdStr, 10);
           await this.fcmService.sendNotification(
             userId,
-            'Daily ROI Credited 💰',
-            `Your wallet has been credited with ₹${amount.toFixed(2)} in daily ROI earnings.`,
+            'Daily ROI Credited',
+            `Your wallet has been credited with Rs. ${amount.toFixed(2)} in daily ROI earnings.`,
             { type: 'roi_credit', amount },
           );
         }
@@ -84,8 +91,8 @@ export class RoiCronService {
         for (const inv of matured) {
           await this.fcmService.sendNotification(
             inv.user_id,
-            'Investment Matured 🎉',
-            `Your investment of ₹${Number(inv.amount).toLocaleString()} has matured! The principal is fully unlocked.`,
+            'Investment Matured',
+            `Your investment of Rs. ${Number(inv.amount).toLocaleString()} has matured! The principal is fully unlocked.`,
             { type: 'investment_maturity', amount: inv.amount },
           );
         }
@@ -107,7 +114,10 @@ export class RoiCronService {
         message: 'Daily ROI routine executed successfully',
         details: data,
       };
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Unknown ROI routine error';
+
       // Log failure audit record
       await this.auditService.log(
         adminId ? 'admin' : 'system',
@@ -115,7 +125,7 @@ export class RoiCronService {
         'EXECUTE_DAILY_ROI_ROUTINE_FAILED',
         null,
         null,
-        { creditedDate: todayStr, error: err.message },
+        { creditedDate: todayStr, error: errorMessage },
         ipAddress,
       );
       throw err;

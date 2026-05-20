@@ -33,25 +33,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         .single();
 
       if (error || !admin || admin.status !== 'active') {
-        throw new UnauthorizedException('Admin account is suspended, inactive, or invalid');
+        throw new UnauthorizedException(
+          'Admin account is suspended, inactive, or invalid',
+        );
       }
 
       // CRIT-3: Validate token_version — invalidates all tokens issued before last logout
       if (payload.tv !== admin.token_version) {
-        throw new UnauthorizedException('Session has been invalidated. Please log in again.');
+        throw new UnauthorizedException(
+          'Session has been invalidated. Please log in again.',
+        );
       }
 
-      return { 
-        id: admin.id, 
-        name: admin.full_name, 
-        email: admin.email, 
+      return {
+        id: admin.id,
+        name: admin.full_name,
+        email: admin.email,
         role: 'ADMIN',
-        isSuper: admin.is_super
+        isSuper: admin.is_super,
       };
     } else {
       const { data: user, error } = await supabase
         .from('users')
-        .select('id, full_name, mobile, email, status, kyc_verified, token_version')
+        .select(
+          'id, full_name, mobile, email, status, kyc_verified, token_version',
+        )
         .eq('id', payload.sub)
         .single();
 
@@ -61,17 +67,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       // CRIT-3: Validate token_version — invalidates all tokens issued before last logout
       if (payload.tv !== user.token_version) {
-        throw new UnauthorizedException('Session has been invalidated. Please log in again.');
+        throw new UnauthorizedException(
+          'Session has been invalidated. Please log in again.',
+        );
       }
 
-      return { 
-        id: user.id, 
-        name: user.full_name, 
-        mobile: user.mobile, 
-        email: user.email, 
-        role: 'USER', 
+      return {
+        id: user.id,
+        name: user.full_name,
+        mobile: user.mobile,
+        email: user.email,
+        role: 'USER',
         status: user.status,
-        kycVerified: user.kyc_verified
+        kycVerified: user.kyc_verified,
       };
     }
   }

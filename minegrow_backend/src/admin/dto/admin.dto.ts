@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsIn, IsOptional, Length } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsIn,
+  IsOptional,
+  Length,
+} from 'class-validator';
 
 export class UpdateUserStatusDto {
   @IsNotEmpty()
