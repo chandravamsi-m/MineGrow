@@ -7,10 +7,17 @@ import {
   X,
   AlertCircle,
   Eye,
-  CheckSquare,
   ShieldAlert,
   Loader2,
   FileText,
+  Wallet,
+  Briefcase,
+  History,
+  User,
+  Calendar,
+  Building,
+  QrCode,
+  IndianRupee,
 } from 'lucide-react';
 
 interface UserDetail {
@@ -35,6 +42,8 @@ export const UsersList: React.FC = () => {
   
   // Selected user for details drawer
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
+  const [userDetailPayload, setUserDetailPayload] = useState<any | null>(null);
+  const [drawerTab, setDrawerTab] = useState<'profile' | 'wallet' | 'investments' | 'withdrawals'>('profile');
   const [detailsLoading, setDetailsLoading] = useState(false);
   
   // KYC Rejection state
@@ -75,11 +84,14 @@ export const UsersList: React.FC = () => {
   const viewUserDetail = async (userId: number) => {
     setDetailsLoading(true);
     setSelectedUser(null);
+    setUserDetailPayload(null);
+    setDrawerTab('profile');
     setShowRejectForm(false);
     setRejectReason('');
     try {
       const response = await api.get<any>(`admin/users/${userId}`);
       if (response.success && response.data) {
+        setUserDetailPayload(response.data);
         // Backend returns: { profile, wallet, investments, withdrawals, kycDocs, bankAccounts }
         const { profile, kycDocs } = response.data;
         // Build a flat shape the drawer expects
@@ -216,10 +228,10 @@ export const UsersList: React.FC = () => {
         </div>
       </div>
 
-      {/* Tables Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      {/* Layout Grid */}
+      <div className="w-full">
         {/* Users Table */}
-        <div className="xl:col-span-2 glass-panel rounded-2xl overflow-hidden shadow-2xl">
+        <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -312,153 +324,436 @@ export const UsersList: React.FC = () => {
           </div>
         </div>
 
-        {/* Profile / KYC Verification Drawer */}
-        <div className="xl:col-span-1 glass-panel rounded-2xl p-6 shadow-2xl h-full space-y-6">
-          <div className="flex items-center space-x-2 border-b border-slate-800 pb-4">
-            <FileText className="w-5 h-5 text-indigo-400" />
-            <h4 className="text-lg font-bold text-slate-100">Audit Desk</h4>
-          </div>
-
-          {detailsLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500 space-y-3">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
-              <span>Fetching profile dossier...</span>
-            </div>
-          ) : !selectedUser ? (
-            <div className="text-center py-16 text-slate-500 text-sm">
-              Select a member from the database registry grid to inspect their dossier profile and review KYC documents.
-            </div>
-          ) : (
-            <div className="space-y-6 animate-fadeIn">
-              {/* Profile Card Header */}
-              <div className="bg-slate-950/40 rounded-xl p-4 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-indigo-400 font-bold">DOSSIER #{selectedUser.id}</span>
-                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-                    selectedUser.status === 'active' ? 'bg-indigo-600/10 text-indigo-400' : 'bg-rose-500/10 text-rose-400'
-                  }`}>
-                    {selectedUser.status}
-                  </span>
+        {/* Slide-over Profile / KYC / Dossier Drawer */}
+        {selectedUser && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-40 transition-opacity duration-300"
+              onClick={() => {
+                setSelectedUser(null);
+                setUserDetailPayload(null);
+              }}
+            />
+            {/* Drawer */}
+            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl h-full bg-slate-950/98 border-l border-slate-800/80 shadow-2xl flex flex-col animate-slideIn">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-slate-100">Audit Dossier</h4>
+                    <span className="font-mono text-[10px] text-indigo-400 font-bold uppercase">Client ID: #{selectedUser.id}</span>
+                  </div>
                 </div>
-                <h5 className="text-base font-bold text-slate-100">{selectedUser.full_name}</h5>
-                <p className="text-xs text-slate-400">{selectedUser.mobile}</p>
-                {selectedUser.email && (
-                  <p className="text-xs text-indigo-300 font-medium truncate">{selectedUser.email}</p>
-                )}
+                <button
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setUserDetailPayload(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 rounded-lg cursor-pointer transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Address details */}
-              <div className="space-y-1">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Registered Payout Address</span>
-                <p className="text-xs text-slate-300 bg-slate-900/30 rounded-lg border border-slate-800/40 p-3 leading-relaxed">
-                  {selectedUser.address || 'Address details missing or incomplete.'}
-                </p>
+              {/* Tab Navigation */}
+              <div className="flex border-b border-slate-800 bg-slate-900/30">
+                <button
+                  onClick={() => setDrawerTab('profile')}
+                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                    drawerTab === 'profile'
+                      ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Profile & KYC</span>
+                </button>
+                <button
+                  onClick={() => setDrawerTab('wallet')}
+                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                    drawerTab === 'wallet'
+                      ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  <span>Balances & Banks</span>
+                </button>
+                <button
+                  onClick={() => setDrawerTab('investments')}
+                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                    drawerTab === 'investments'
+                      ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Investments ({userDetailPayload?.investments?.length || 0})</span>
+                </button>
+                <button
+                  onClick={() => setDrawerTab('withdrawals')}
+                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                    drawerTab === 'withdrawals'
+                      ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Payouts ({userDetailPayload?.withdrawals?.length || 0})</span>
+                </button>
               </div>
 
-              {/* KYC Document Scan View */}
-              <div className="space-y-3">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">KYC Verification Document</span>
-                
-                {selectedUser.kyc_document_url ? (
-                  <div className="space-y-3">
-                    <a
-                      href={`http://localhost:3000${selectedUser.kyc_document_url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative block rounded-xl overflow-hidden border border-slate-800 bg-slate-950/50 aspect-video flex items-center justify-center hover:border-indigo-500/30 transition-all duration-300 shadow-inner"
-                    >
-                      <img
-                        src={`http://localhost:3000${selectedUser.kyc_document_url}`}
-                        alt="KYC Document Preview"
-                        className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-300 group-hover:opacity-85"
-                        onError={(e) => {
-                          // Fallback
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      <span className="absolute bottom-3 right-3 bg-slate-950/80 px-2.5 py-1 rounded text-[10px] font-semibold text-slate-300 group-hover:bg-indigo-600 transition-colors duration-300">
-                        View Scan Fullscreen
-                      </span>
-                    </a>
+              {/* Body */}
+              <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                {detailsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+                    <span>Fetching profile dossier...</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Tab: Profile & KYC */}
+                    {drawerTab === 'profile' && (
+                      <div className="space-y-6 animate-fadeIn">
+                        {/* Member card */}
+                        <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800 space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h5 className="text-base font-bold text-slate-200">{selectedUser.full_name}</h5>
+                              <p className="text-xs text-slate-400 mt-0.5">Mobile: {selectedUser.mobile}</p>
+                              {selectedUser.email && (
+                                <p className="text-xs text-indigo-300 font-medium mt-1 truncate">{selectedUser.email}</p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end space-y-2">
+                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${
+                                selectedUser.status === 'active' 
+                                  ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' 
+                                  : 'bg-rose-500/5 border-rose-500/10 text-rose-400'
+                              }`}>
+                                Account: {selectedUser.status}
+                              </span>
+                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${
+                                selectedUser.kyc_verified 
+                                  ? 'bg-indigo-500/5 border-indigo-500/10 text-indigo-400' 
+                                  : 'bg-amber-500/5 border-amber-500/10 text-amber-400'
+                              }`}>
+                                KYC: {selectedUser.kyc_verified ? 'Verified' : 'Pending'}
+                              </span>
+                            </div>
+                          </div>
 
-                    {/* Decisions block */}
-                    {!selectedUser.kyc_verified && (
-                      <div className="space-y-2 pt-2 border-t border-slate-800/60">
-                        {!showRejectForm ? (
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="border-t border-slate-800/80 pt-3 flex justify-between items-center text-xs text-slate-500">
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span>Joined: {new Date(selectedUser.created_at).toLocaleDateString()}</span>
+                            </div>
                             <button
-                              onClick={() => approveKyc(selectedUser.id)}
+                              onClick={() => toggleUserStatus(selectedUser)}
                               disabled={actionLoading}
-                              className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
+                              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
+                                selectedUser.status === 'active'
+                                  ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
+                                  : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
+                              }`}
                             >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Approve KYC</span>
-                            </button>
-                            
-                            <button
-                              onClick={() => setShowRejectForm(true)}
-                              className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Reject Submission</span>
+                              {selectedUser.status === 'active' ? 'Suspend Account' : 'Activate Account'}
                             </button>
                           </div>
-                        ) : (
-                          <div className="space-y-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/15 animate-fadeIn">
-                            <label className="text-[10px] font-bold text-rose-400 uppercase">Reason for KYC Rejection</label>
-                            <textarea
-                              rows={3}
-                              placeholder="Specify reason (e.g. Blur proof image, incorrect ID details matching onboarding)..."
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500/40"
-                            />
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => rejectKyc(selectedUser.id)}
-                                disabled={actionLoading}
-                                className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
+                        </div>
+
+                        {/* Address */}
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Registered Payout Address</span>
+                          <p className="text-xs text-slate-300 bg-slate-900/30 rounded-xl border border-slate-800/40 p-4 leading-relaxed">
+                            {selectedUser.address || 'Address details missing or incomplete.'}
+                          </p>
+                        </div>
+
+                        {/* KYC Document Scan View */}
+                        <div className="space-y-3">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">KYC Verification Document</span>
+                          
+                          {selectedUser.kyc_document_url ? (
+                            <div className="space-y-4">
+                              <a
+                                href={`http://localhost:3000${selectedUser.kyc_document_url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group relative block rounded-xl overflow-hidden border border-slate-800 bg-slate-900/30 aspect-video flex items-center justify-center hover:border-indigo-500/30 transition-all duration-300 shadow-inner"
                               >
-                                Submit Rejection
-                              </button>
-                              <button
-                                onClick={() => setShowRejectForm(false)}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
-                              >
-                                Cancel
-                              </button>
+                                <img
+                                  src={`http://localhost:3000${selectedUser.kyc_document_url}`}
+                                  alt="KYC Document Preview"
+                                  className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-300 group-hover:opacity-85"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                                <span className="absolute bottom-3 right-3 bg-slate-950/80 px-2.5 py-1 rounded text-[10px] font-semibold text-slate-300 group-hover:bg-indigo-600 transition-colors duration-300">
+                                  View Scan Fullscreen
+                                </span>
+                              </a>
+
+                              {/* Decisions block */}
+                              {!selectedUser.kyc_verified && (
+                                <div className="space-y-2 pt-2 border-t border-slate-800/60">
+                                  {!showRejectForm ? (
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <button
+                                        onClick={() => approveKyc(selectedUser.id)}
+                                        disabled={actionLoading}
+                                        className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Approve KYC</span>
+                                      </button>
+                                      
+                                      <button
+                                        onClick={() => setShowRejectForm(true)}
+                                        className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                        <span>Reject Submission</span>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/15 animate-fadeIn">
+                                      <label className="text-[10px] font-bold text-rose-400 uppercase">Reason for KYC Rejection</label>
+                                      <textarea
+                                        rows={3}
+                                        placeholder="Specify reason (e.g. Blur proof image, incorrect ID details matching onboarding)..."
+                                        value={rejectReason}
+                                        onChange={(e) => setRejectReason(e.target.value)}
+                                        className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500/40"
+                                      />
+                                      <div className="flex space-x-2">
+                                        <button
+                                          onClick={() => rejectKyc(selectedUser.id)}
+                                          disabled={actionLoading}
+                                          className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
+                                        >
+                                          Submit Rejection
+                                        </button>
+                                        <button
+                                          onClick={() => setShowRejectForm(false)}
+                                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
+                          ) : (
+                            <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500 bg-slate-900/10">
+                              No KYC document scans uploaded yet by user. Onboarding details pending.
+                            </div>
+                          )}
+                        </div>
+
+                        {selectedUser.kyc_rejection_reason && !selectedUser.kyc_verified && (
+                          <div className="p-3.5 bg-rose-500/5 rounded-xl border border-rose-500/10 text-rose-400 space-y-1 text-xs">
+                            <div className="flex items-center space-x-2">
+                              <ShieldAlert className="w-4 h-4 text-rose-500" />
+                              <span className="font-semibold">Previously Rejected Submission</span>
+                            </div>
+                            <p className="opacity-90 leading-relaxed font-mono text-[10px] pl-6">{selectedUser.kyc_rejection_reason}</p>
                           </div>
                         )}
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500">
-                    No KYC document scans uploaded yet by user. Onboarding details pending.
-                  </div>
+
+                    {/* Tab: Balances & Banks */}
+                    {drawerTab === 'wallet' && (
+                      <div className="space-y-6 animate-fadeIn">
+                        {/* Balance Grid */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">ROI profit wallet</span>
+                            <div className="flex items-baseline text-amber-400 font-bold text-lg">
+                              <IndianRupee className="w-4 h-4 mr-0.5 text-amber-500 self-center" />
+                              <span>{(userDetailPayload?.wallet?.roi_balance || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">principal balance</span>
+                            <div className="flex items-baseline text-indigo-400 font-bold text-lg">
+                              <IndianRupee className="w-4 h-4 mr-0.5 text-indigo-500 self-center" />
+                              <span>{(userDetailPayload?.wallet?.principal_balance || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">total deposited</span>
+                            <div className="flex items-baseline text-slate-300 font-bold text-lg">
+                              <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500 self-center" />
+                              <span>{(userDetailPayload?.wallet?.total_deposited || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">total settled</span>
+                            <div className="flex items-baseline text-slate-300 font-bold text-lg">
+                              <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500 self-center" />
+                              <span>{(userDetailPayload?.wallet?.total_withdrawn || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Last ROI Withdrawal date */}
+                        {userDetailPayload?.wallet?.last_roi_withdrawal_at && (
+                          <div className="text-xs text-slate-500 bg-slate-900/20 border border-slate-800/40 p-3 rounded-lg flex items-center space-x-2">
+                            <Calendar className="w-4 h-4 text-indigo-400" />
+                            <span>Last ROI profit withdrawal was processed on: <strong>{new Date(userDetailPayload.wallet.last_roi_withdrawal_at).toLocaleDateString()}</strong></span>
+                          </div>
+                        )}
+
+                        {/* Banks/UPI Accounts */}
+                        <div className="space-y-3.5">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Payout Banking Profiles</span>
+                          
+                          {userDetailPayload?.bankAccounts && userDetailPayload.bankAccounts.length > 0 ? (
+                            userDetailPayload.bankAccounts.map((account: any) => (
+                              <div key={account.id} className="p-4 bg-slate-900/30 rounded-xl border border-slate-800/80 space-y-3 text-xs">
+                                {account.bank_name ? (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2 text-indigo-400 font-semibold border-b border-slate-800/60 pb-1.5 mb-2">
+                                      <Building className="w-4 h-4" />
+                                      <span>Wire Account ({account.bank_name})</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-y-2.5 text-slate-300">
+                                      <div className="text-slate-500 font-medium">Bank Name:</div>
+                                      <div className="font-semibold text-right truncate">{account.bank_name}</div>
+                                      
+                                      <div className="text-slate-500 font-medium">Account Number:</div>
+                                      <div className="font-mono font-semibold text-right select-all">{account.account_number}</div>
+                                      
+                                      <div className="text-slate-500 font-medium">IFSC Identifier:</div>
+                                      <div className="font-mono font-semibold text-right text-indigo-300 select-all">{account.ifsc_code}</div>
+                                    </div>
+                                  </div>
+                                ) : account.upi_id ? (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2 text-indigo-400 font-semibold border-b border-slate-800/60 pb-1.5 mb-2">
+                                      <QrCode className="w-4 h-4" />
+                                      <span>UPI Direct Address</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-slate-300">
+                                      <span className="text-slate-500 font-medium">UPI Address ID:</span>
+                                      <span className="font-mono font-bold text-slate-200 select-all p-1 bg-slate-950/60 border border-slate-800/40 rounded-md block">
+                                        {account.upi_id}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500 bg-slate-900/10">
+                              No bank payout coordinates configured by user.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tab: Investments */}
+                    {drawerTab === 'investments' && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">investment contract history</span>
+                        
+                        {userDetailPayload?.investments && userDetailPayload.investments.length > 0 ? (
+                          <div className="space-y-3">
+                            {userDetailPayload.investments.map((inv: any) => (
+                              <div key={inv.id} className="p-3.5 bg-slate-900/30 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-semibold text-slate-200">₹{inv.amount.toLocaleString()}</span>
+                                    <span className="text-[10px] text-indigo-400">({inv.daily_roi_pct}% ROI)</span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">
+                                    Placed: {new Date(inv.created_at).toLocaleDateString()} • Lock: {inv.lock_days} days
+                                  </div>
+                                  {inv.maturity_date && (
+                                    <div className="text-[9px] text-slate-400">
+                                      Matures: {new Date(inv.maturity_date).toLocaleDateString()}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                                  inv.status === 'active' 
+                                    ? 'bg-emerald-600/10 text-emerald-400' 
+                                    : inv.status === 'pending'
+                                    ? 'bg-amber-600/10 text-amber-400'
+                                    : inv.status === 'matured'
+                                    ? 'bg-blue-600/10 text-blue-400'
+                                    : 'bg-rose-500/10 text-rose-400'
+                                }`}>
+                                  {inv.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500 bg-slate-900/10">
+                            No investments found under profile dossier.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tab: Payouts */}
+                    {drawerTab === 'withdrawals' && (
+                      <div className="space-y-4 animate-fadeIn">
+                        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">withdrawal payout registry</span>
+                        
+                        {userDetailPayload?.withdrawals && userDetailPayload.withdrawals.length > 0 ? (
+                          <div className="space-y-3">
+                            {userDetailPayload.withdrawals.map((w: any) => (
+                              <div key={w.id} className="p-3.5 bg-slate-900/30 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="font-semibold text-slate-200">₹{w.amount.toLocaleString()}</span>
+                                    <span className="text-[9px] uppercase tracking-wider bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                                      {w.withdrawal_type}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500">
+                                    Requested: {new Date(w.requested_at).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                                  w.status === 'completed' 
+                                    ? 'bg-emerald-600/10 text-emerald-400' 
+                                    : w.status === 'pending' || w.status === 'requested'
+                                    ? 'bg-blue-600/10 text-blue-400'
+                                    : w.status === 'approved'
+                                    ? 'bg-amber-600/10 text-amber-400'
+                                    : 'bg-rose-500/10 text-rose-400'
+                                }`}>
+                                  {w.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500 bg-slate-900/10">
+                            No withdrawals found under profile dossier.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-
-              {selectedUser.kyc_verified && (
-                <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 text-emerald-400 flex items-center space-x-2.5 text-xs">
-                  <CheckSquare className="w-4 h-4 flex-shrink-0" />
-                  <span>Dossier audit complete. KYC validation approved.</span>
-                </div>
-              )}
-
-              {selectedUser.kyc_rejection_reason && !selectedUser.kyc_verified && (
-                <div className="p-3 bg-rose-500/5 rounded-xl border border-rose-500/10 text-rose-400 space-y-1 text-xs">
-                  <div className="flex items-center space-x-2">
-                    <ShieldAlert className="w-4 h-4" />
-                    <span className="font-semibold">Previously Rejected Submission</span>
-                  </div>
-                  <p className="opacity-90 leading-relaxed font-mono text-[10px] pl-6">{selectedUser.kyc_rejection_reason}</p>
-                </div>
-              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
