@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/app_routes.dart';
@@ -491,7 +492,11 @@ class MGTextField extends StatefulWidget {
     this.suffixIcon,
     this.obscureText = false,
     this.keyboardType,
+    this.textInputAction,
     this.controller,
+    this.onSubmitted,
+    this.onChanged,
+    this.inputFormatters,
   });
 
   final String? label;
@@ -500,7 +505,11 @@ class MGTextField extends StatefulWidget {
   final Widget? suffixIcon;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
   final TextEditingController? controller;
+  final ValueChanged<String>? onSubmitted;
+  final ValueChanged<String>? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   State<MGTextField> createState() => _MGTextFieldState();
@@ -543,6 +552,10 @@ class _MGTextFieldState extends State<MGTextField> {
         controller: widget.controller,
         obscureText: _obscured,
         keyboardType: widget.keyboardType,
+        textInputAction: widget.textInputAction,
+        inputFormatters: widget.inputFormatters,
+        onSubmitted: widget.onSubmitted,
+        onChanged: widget.onChanged,
         style: Theme.of(context).textTheme.bodyMedium,
         decoration: InputDecoration(
           hintText: widget.hintText,
