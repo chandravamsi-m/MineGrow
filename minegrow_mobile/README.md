@@ -1,4 +1,4 @@
-# minegrow_mobile
+# minegrow
 
 A new Flutter project.
 

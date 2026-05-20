@@ -1,6 +1,6 @@
 {
-    "name": "minegrow_mobile",
-    "short_name": "minegrow_mobile",
+    "name": "minegrow",
+    "short_name": "minegrow",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#111315",
