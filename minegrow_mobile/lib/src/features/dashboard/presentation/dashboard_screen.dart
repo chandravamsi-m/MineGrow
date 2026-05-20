@@ -36,6 +36,7 @@ class DashboardScreen extends ConsumerWidget {
       (sum, item) => sum + item.amount,
     );
     final hasActivePlan = activePlans > 0 || wallet.totalBalance > 0;
+    final lockProgress = _lockProgress(investments);
 
     return MGScaffold(
       appBar: MGAppBar(
@@ -184,10 +185,12 @@ class DashboardScreen extends ConsumerWidget {
                                 ?.copyWith(color: context.tokens.textSecondary),
                           ),
                           const SizedBox(height: 18),
-                          const MGProgressBar(value: 0.5),
+                          MGProgressBar(value: lockProgress),
                           const SizedBox(height: 10),
                           Text(
-                            'Synced from backend wallet data',
+                            lockProgress >= 1.0
+                                ? 'Lock period complete — withdrawal available'
+                                : '${(lockProgress * 100).round()}% of lock period elapsed',
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: context.tokens.textSecondary),
                           ),
@@ -195,7 +198,10 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    const MGCircularProgress(value: 0.5, label: '50%'),
+                    MGCircularProgress(
+                      value: lockProgress,
+                      label: '${(lockProgress * 100).round()}%',
+                    ),
                   ],
                 ),
               )
@@ -220,6 +226,17 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+double _lockProgress(List<InvestmentRecord> investments) {
+  final active = investments.where((i) => i.isActive).toList();
+  if (active.isEmpty) return 0;
+  // Use the earliest active plan to show overall lock progress
+  active.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  final rec = active.first;
+  final start = DateTime.tryParse(rec.createdAt)?.toLocal() ?? DateTime.now();
+  final elapsed = DateTime.now().difference(start).inDays;
+  return (elapsed / rec.lockDays).clamp(0.0, 1.0);
 }
 
 class _BalanceMetric extends StatelessWidget {

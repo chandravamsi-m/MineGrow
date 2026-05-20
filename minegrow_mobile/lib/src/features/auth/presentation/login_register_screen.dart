@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
@@ -29,13 +30,10 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
 
   Future<void> _submit() async {
     final phone = _phoneController.text.trim();
-    debugPrint('[LOGIN] _submit() called — raw input: "$phone"');
 
     setState(() {
-      final digitsOnly = RegExp(r'^\d{10}$');
-      if (phone.isEmpty || !digitsOnly.hasMatch(phone)) {
-        _errorText = 'Enter a valid 10 digit mobile number to continue.';
-        debugPrint('[LOGIN] Validation failed: "$phone" is not a valid 10-digit number');
+      if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+        _errorText = 'Enter a valid 10 digit mobile number.';
         return;
       }
       _errorText = null;
@@ -43,98 +41,173 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
     });
 
     if (_errorText != null) {
-      debugPrint('[LOGIN] Aborting — validation error is set, not calling sendOtp');
       setState(() => _isSubmitting = false);
       return;
     }
 
-    debugPrint('[LOGIN] Validation passed — calling sendOtp for $phone');
-
     try {
-      final auth = ref.read(authRepositoryProvider);
-      await auth.sendOtp(mobile: phone, purpose: 'login');
-
-      debugPrint('[LOGIN] sendOtp succeeded — mounted=$mounted, navigating to ${AppRoutes.otp}');
-      if (mounted) {
-        context.go(AppRoutes.otp);
-        debugPrint('[LOGIN] context.go(${AppRoutes.otp}) called');
-      } else {
-        debugPrint('[LOGIN] Widget unmounted after sendOtp — navigation skipped');
-      }
-    } on ApiException catch (error) {
-      debugPrint('[LOGIN] ApiException caught — status=${error.statusCode} message="${error.message}"');
-      setState(() => _errorText = error.message);
-    } catch (e, st) {
-      debugPrint('[LOGIN] Unexpected error caught: $e');
-      debugPrint('[LOGIN] Stack trace: $st');
-      setState(() {
-        _errorText = 'Could not reach the MineGrow server. Try again.';
-      });
+      await ref
+          .read(authRepositoryProvider)
+          .sendOtp(mobile: phone, purpose: 'login');
+      if (mounted) context.go(AppRoutes.otp);
+    } on ApiException catch (e) {
+      setState(() => _errorText = e.message);
+    } catch (_) {
+      setState(() => _errorText = 'Could not connect. Try again.');
     } finally {
-      debugPrint('[LOGIN] finally block — mounted=$mounted');
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MGScaffold(
-      appBar: const MGAppBar(
-        title: '',
-        showBack: true,
-        backRoute: AppRoutes.splash,
-      ),
-      backFallbackRoute: AppRoutes.splash,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final tokens = context.tokens;
+    final metrics = context.metrics;
+
+    return Scaffold(
+      backgroundColor: tokens.background,
+      resizeToAvoidBottomInset: true,
+      body: Stack(
         children: [
-          const SizedBox(height: 10),
-          Text(
-            'Welcome to MineGrow',
-            style: Theme.of(context).textTheme.headlineSmall,
+          Positioned(
+            top: -100,
+            right: -100,
+            child: GlowOrb(color: tokens.brandGold, size: 280),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Enter your mobile number to sign in or create an account',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 32),
-          MGTextField(
-            label: 'Enter Mobile Number',
-            hintText: 'Enter mobile number',
-            keyboardType: TextInputType.phone,
-            controller: _phoneController,
-            prefix: const Text('+91 '),
-          ),
-          if (_errorText != null) ...[
-            const SizedBox(height: 14),
-            MGInlineMessage(
-              message: _errorText!,
-              tone: MGMessageTone.danger,
-              icon: Icons.error_outline,
-            ),
-          ],
-          const SizedBox(height: 28),
-          MGGradientButton(
-            label: _isSubmitting ? 'Sending Code...' : 'Send Verification Code',
-            onPressed: _isSubmitting ? null : _submit,
-          ),
-          const SizedBox(height: 34),
-          Center(
-            child: Text(
-              'By continuing, you agree to our Terms of Service & Privacy Policy',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: context.tokens.textMuted,
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: metrics.screenPadding),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height,
+                width: MediaQuery.of(context).size.width,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: .center,
+                  children: [
+                    // Spacer(),
+
+                    // ── Brand ─────────────────────────────────────────────────
+                    // Row(
+                    //   children: [
+                    //     const MGMiningMark(size: 32),
+                    //     const SizedBox(width: 10),
+                    //     Text(
+                    //       'MineGrow',
+                    //       style: Theme.of(
+                    //         context,
+                    //       ).textTheme.titleMedium?.copyWith(
+                    //         color: tokens.brandGold,
+                    //         fontWeight: FontWeight.w700,
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
+
+                    // ── Heading ───────────────────────────────────────────────
+                    Text(
+                      'Enter your\nmobile number',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "We'll send a verification code to sign you in.",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: tokens.textSecondary,
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // ── Phone field ───────────────────────────────────────────
+                    MGTextField(
+                      hintText: '00000 00000',
+                      keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                      controller: _phoneController,
+                      prefix: const _CountryCodeBadge(),
+                      onSubmitted: (_) => _submit(),
+                    ),
+
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      child: _errorText != null
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: MGInlineMessage(
+                                message: _errorText!,
+                                tone: MGMessageTone.danger,
+                                icon: Icons.error_outline,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ── CTA ───────────────────────────────────────────────────
+                    MGGradientButton(
+                      label: _isSubmitting
+                          ? 'Sending Code...'
+                          : 'Send Verification Code',
+                      onPressed: _isSubmitting ? null : _submit,
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    Center(
+                      child: Text(
+                        'By continuing you agree to our Terms & Privacy Policy',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: tokens.textMuted,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CountryCodeBadge extends StatelessWidget {
+  const _CountryCodeBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('🇮🇳', style: TextStyle(fontSize: 16)),
+        const SizedBox(width: 6),
+        Text(
+          '+91',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: context.tokens.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(width: 1, height: 18, color: context.tokens.borderMuted),
+        const SizedBox(width: 2),
+      ],
     );
   }
 }
