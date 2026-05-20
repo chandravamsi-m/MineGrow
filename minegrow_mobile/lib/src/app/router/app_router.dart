@@ -15,6 +15,8 @@ import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/wallet/presentation/wallet_screen.dart';
 import '../../features/withdrawal/presentation/withdrawal_screen.dart';
+import '../../core/network/dio_client.dart';
+import '../../core/storage/local_storage.dart';
 import '../../shared/data/app_models.dart';
 
 abstract final class AppRoutes {
@@ -33,10 +35,59 @@ abstract final class AppRoutes {
   static const notifications = '/notifications';
 }
 
+/// Routes that do not require authentication
+const _publicRoutes = {
+  AppRoutes.splash,
+  AppRoutes.auth,
+  AppRoutes.otp,
+};
+
+/// Routes that require authentication
+const _protectedRoutes = {
+  AppRoutes.dashboard,
+  AppRoutes.investments,
+  AppRoutes.investmentDetails,
+  AppRoutes.wallet,
+  AppRoutes.roiHistory,
+  AppRoutes.withdrawal,
+  AppRoutes.withdrawalHistory,
+  AppRoutes.profile,
+  AppRoutes.notifications,
+  AppRoutes.onboarding,
+};
+
 final routerProvider = Provider<GoRouter>((ref) {
+  final storage = ref.watch(localStorageProvider);
+
   return GoRouter(
     initialLocation: AppRoutes.splash,
     errorBuilder: (context, state) => const _RouteErrorScreen(),
+
+    // MED-1: Auth redirect guard — prevents unauthenticated access to protected routes.
+    // Every navigation attempt checks for a valid access token in secure storage.
+    redirect: (context, state) async {
+      final location = state.matchedLocation;
+
+      // Read token from secure storage (async)
+      final accessToken = await storage.readStringAsync(AuthStorageKeys.accessToken);
+      final isLoggedIn = accessToken != null && accessToken.isNotEmpty;
+      final isPublicRoute = _publicRoutes.contains(location);
+
+      // Unauthenticated user trying to access a protected route → send to auth
+      if (!isLoggedIn && !isPublicRoute) {
+        return AppRoutes.auth;
+      }
+
+      // Authenticated user trying to access public auth routes → send to dashboard
+      // (splash screen is excluded — it handles its own routing logic)
+      if (isLoggedIn && isPublicRoute && location != AppRoutes.splash) {
+        return AppRoutes.dashboard;
+      }
+
+      // No redirect needed
+      return null;
+    },
+
     routes: [
       GoRoute(
         path: AppRoutes.splash,

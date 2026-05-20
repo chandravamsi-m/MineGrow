@@ -21,4 +21,8 @@ export const envValidationSchema = Joi.object({
   FIREBASE_CLIENT_EMAIL: Joi.string().optional(),
   FIREBASE_PRIVATE_KEY: Joi.string().optional(),
   ROI_CRON_SCHEDULE: Joi.string().default('0 0 * * *'),
+  // CRIT-5: Comma-separated list of allowed CORS origins
+  CORS_ALLOWED_ORIGINS: Joi.string().optional(),
+  // MED-3: Set to 'false' in production to disable the admin seed endpoint
+  ADMIN_SEED_ENABLED: Joi.string().valid('true', 'false').default('true'),
 });

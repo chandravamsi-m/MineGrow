@@ -31,7 +31,9 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
     final phone = _phoneController.text.trim();
 
     setState(() {
-      if (phone.isEmpty || phone.length < 10) {
+      // MED-5: Proper regex validation — must be exactly 10 numeric digits
+      final digitsOnly = RegExp(r'^\d{10}$');
+      if (phone.isEmpty || !digitsOnly.hasMatch(phone)) {
         _errorText = 'Enter a valid 10 digit mobile number to continue.';
         return;
       }

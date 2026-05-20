@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/network/dio_client.dart';
+import '../../../core/storage/local_storage.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends ConsumerWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MGScaffold(
       backFallbackRoute: null,
       scrollable: false,
@@ -48,7 +51,15 @@ class SplashScreen extends StatelessWidget {
           const SizedBox(height: 28),
           MGGradientButton(
             label: 'Continue',
-            onPressed: () => context.go(AppRoutes.auth),
+            onPressed: () async {
+              // Warm the secure storage cache before the router redirect guard checks it
+              final storage = ref.read(localStorageProvider);
+              await storage.readStringAsync(AuthStorageKeys.accessToken);
+
+              if (context.mounted) {
+                context.go(AppRoutes.auth);
+              }
+            },
           ),
         ],
       ),

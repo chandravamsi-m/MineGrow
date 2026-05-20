@@ -71,8 +71,8 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
-    await _storage.remove(AuthStorageKeys.accessToken);
-    await _storage.remove(AuthStorageKeys.refreshToken);
+    // Clear all auth data from encrypted secure storage
+    await _storage.removeAll();
   }
 
   String? readSavedMobile() => _storage.readString(AuthStorageKeys.mobile);

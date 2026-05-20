@@ -25,8 +25,9 @@ final dioProvider = Provider<Dio>((ref) {
 
   dio.interceptors.add(
     InterceptorsWrapper(
-      onRequest: (options, handler) {
-        final accessToken = storage.readString(AuthStorageKeys.accessToken);
+      onRequest: (options, handler) async {
+        // HIGH-3: Read token from encrypted secure storage (async)
+        final accessToken = await storage.readStringAsync(AuthStorageKeys.accessToken);
         if (accessToken != null && accessToken.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $accessToken';
         }

@@ -8,11 +8,16 @@ export default () => ({
     bucket: process.env.SUPABASE_STORAGE_BUCKET || 'mining-app-files',
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'fallback-secret-key-32chars-for-safety',
+    // NOTE: No fallback — JWT_SECRET is enforced as required by env.validation.ts
+    secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
-  adminSeedSecret: process.env.ADMIN_SEED_SECRET || 'admin-bootstrap-secret-999',
+  adminSeedSecret: process.env.ADMIN_SEED_SECRET,
+  // MED-3: Disable seed endpoint in production via env flag
+  adminSeedEnabled: process.env.ADMIN_SEED_ENABLED !== 'false',
+  // CRIT-5: CORS allowed origins (comma-separated)
+  corsAllowedOrigins: process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3001,http://localhost:4200',
   otpExpiryMinutes: parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10) || 5,
   sms: {
     provider: process.env.SMS_PROVIDER || 'DEV',
