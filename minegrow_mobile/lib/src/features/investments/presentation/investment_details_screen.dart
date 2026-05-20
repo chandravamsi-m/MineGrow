@@ -72,7 +72,7 @@ class _InvestmentDetailsScreenState
       body: selectedPlan == null
           ? plansState.when(
               loading: () => const MGLoadingList(itemCount: 2),
-              error: (_, __) => MGFriendlyState(
+              error: (e, st) => MGFriendlyState(
                 icon: Icons.cloud_off_outlined,
                 title: 'Plan details could not load',
                 message:

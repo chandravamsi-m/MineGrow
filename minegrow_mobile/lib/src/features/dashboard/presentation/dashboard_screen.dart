@@ -10,11 +10,31 @@ import '../../investments/data/investments_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../wallet/data/wallet_repository.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  Future<void> _onRefresh() async {
+    ref.invalidate(walletSummaryProvider);
+    ref.invalidate(profileProvider);
+    ref.invalidate(ownInvestmentsProvider);
+    try {
+      await Future.wait([
+        ref.read(walletSummaryProvider.future),
+        ref.read(profileProvider.future),
+        ref.read(ownInvestmentsProvider.future),
+      ]);
+    } catch (_) {
+      // Errors are shown via the error states in the UI
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final walletState = ref.watch(walletSummaryProvider);
     final profileState = ref.watch(profileProvider);
     final investmentsState = ref.watch(ownInvestmentsProvider);
@@ -38,6 +58,8 @@ class DashboardScreen extends ConsumerWidget {
     final hasActivePlan = activePlans > 0 || wallet.totalBalance > 0;
     final lockProgress = _lockProgress(investments);
 
+    final screenPad = context.metrics.screenPadding;
+
     return MGScaffold(
       appBar: MGAppBar(
         title: 'Hello, $profileName',
@@ -48,180 +70,206 @@ class DashboardScreen extends ConsumerWidget {
       ),
       mainNavigationIndex: 0,
       backFallbackRoute: null,
-      body: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            walletState.when(
-              loading: () => const MGLoadingList(itemCount: 1),
-              error: (error, stackTrace) => MGFriendlyState(
-                icon: Icons.cloud_off_outlined,
-                title: 'Dashboard could not refresh',
-                message:
-                    'Login again or check your connection to load wallet totals.',
-                actionLabel: 'Retry',
-                onAction: () => ref.invalidate(walletSummaryProvider),
-              ),
-              data: (wallet) => MGCard(
-                gradient: context.tokens.walletGradient,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      scrollable: false,
+      padding: EdgeInsets.zero,
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: context.tokens.brandGold,
+        backgroundColor: context.tokens.surface,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              screenPad,
+              screenPad,
+              screenPad,
+              screenPad + 80,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                walletState.when(
+                  loading: () => const MGLoadingList(itemCount: 1),
+                  error: (error, stackTrace) => MGFriendlyState(
+                    icon: Icons.cloud_off_outlined,
+                    title: 'Dashboard could not refresh',
+                    message:
+                        'Login again or check your connection to load wallet totals.',
+                    actionLabel: 'Retry',
+                    onAction: () => ref.invalidate(walletSummaryProvider),
+                  ),
+                  data: (wallet) => MGCard(
+                    gradient: context.tokens.walletGradient,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Total Wallet Balance',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                        color: context.tokens.textSecondary),
+                              ),
+                            ),
+                            const Icon(Icons.visibility_outlined, size: 18),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          formatCurrency(wallet.totalBalance),
+                          style: Theme.of(context).textTheme.displaySmall,
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _BalanceMetric(
+                                'ROI Wallet',
+                                formatCurrency(wallet.roiBalance),
+                              ),
+                            ),
+                            Expanded(
+                              child: _BalanceMetric(
+                                'Principal Wallet',
+                                formatCurrency(wallet.principalBalance),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 2.3,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Total Wallet Balance',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: context.tokens.textSecondary),
-                          ),
-                        ),
-                        const Icon(Icons.visibility_outlined, size: 18),
-                      ],
+                    MGStatCard(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: 'Total Investment',
+                      value: formatCurrency(totalInvested),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      formatCurrency(wallet.totalBalance),
-                      style: Theme.of(context).textTheme.displaySmall,
+                    MGStatCard(
+                      icon: Icons.trending_up,
+                      label: 'Total Earnings',
+                      value: formatCurrency(wallet.totalRoiEarned),
                     ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _BalanceMetric(
-                            'ROI Wallet',
-                            formatCurrency(wallet.roiBalance),
-                          ),
-                        ),
-                        Expanded(
-                          child: _BalanceMetric(
-                            'Principal Wallet',
-                            formatCurrency(wallet.principalBalance),
-                          ),
-                        ),
-                      ],
+                    MGStatCard(
+                      icon: Icons.savings_outlined,
+                      label: 'ROI Wallet',
+                      value: formatCurrency(wallet.roiBalance),
+                    ),
+                    MGStatCard(
+                      icon: Icons.layers_outlined,
+                      label: 'Active Plans',
+                      value: activePlans.toString(),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 2.3,
-              children: [
-                MGStatCard(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Total Investment',
-                  value: formatCurrency(totalInvested),
-                ),
-                MGStatCard(
-                  icon: Icons.trending_up,
-                  label: 'Total Earnings',
-                  value: formatCurrency(wallet.totalRoiEarned),
-                ),
-                MGStatCard(
-                  icon: Icons.savings_outlined,
-                  label: 'ROI Wallet',
-                  value: formatCurrency(wallet.roiBalance),
-                ),
-                MGStatCard(
-                  icon: Icons.layers_outlined,
-                  label: 'Active Plans',
-                  value: activePlans.toString(),
-                ),
-              ],
-            ),
-            // ── Active Plans section ──────────────────────────────────────
-            if (investments.any((i) => i.isActive)) ...[
-              const SizedBox(height: 14),
-              SectionTitle(
-                'Active Plans',
-                trailing: TextButton(
-                  onPressed: () => context.go(AppRoutes.investments),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'View All',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: context.tokens.brandGold,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              for (final inv in investments.where((i) => i.isActive)) ...[
-                MGActivePlanCard(record: inv),
-                const SizedBox(height: 10),
-              ],
-            ],
-            // ─────────────────────────────────────────────────────────────
-            const SizedBox(height: 14),
-            if (hasActivePlan)
-              MGCard(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Principal Unlock',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Track active plans from Investments',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: context.tokens.textSecondary),
-                          ),
-                          const SizedBox(height: 18),
-                          MGProgressBar(value: lockProgress),
-                          const SizedBox(height: 10),
-                          Text(
-                            lockProgress >= 1.0
-                                ? 'Lock period complete — withdrawal available'
-                                : '${(lockProgress * 100).round()}% of lock period elapsed',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: context.tokens.textSecondary),
-                          ),
-                        ],
+                // ── Active Plans section ────────────────────────────────────
+                if (investments.any((i) => i.isActive)) ...[
+                  const SizedBox(height: 14),
+                  SectionTitle(
+                    'Active Plans',
+                    trailing: TextButton(
+                      onPressed: () => context.go(AppRoutes.investments),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'View All',
+                        style:
+                            Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: context.tokens.brandGold,
+                                  fontWeight: FontWeight.w600,
+                                ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    MGCircularProgress(
-                      value: lockProgress,
-                      label: '${(lockProgress * 100).round()}%',
-                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final inv in investments.where((i) => i.isActive)) ...[
+                    MGActivePlanCard(record: inv),
+                    const SizedBox(height: 10),
                   ],
+                ],
+                // ───────────────────────────────────────────────────────────
+                const SizedBox(height: 14),
+                if (hasActivePlan)
+                  MGCard(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Principal Unlock',
+                                style:
+                                    Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Track active plans from Investments',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                        color: context.tokens.textSecondary),
+                              ),
+                              const SizedBox(height: 18),
+                              MGProgressBar(value: lockProgress),
+                              const SizedBox(height: 10),
+                              Text(
+                                lockProgress >= 1.0
+                                    ? 'Lock period complete — withdrawal available'
+                                    : '${(lockProgress * 100).round()}% of lock period elapsed',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                        color: context.tokens.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        MGCircularProgress(
+                          value: lockProgress,
+                          label: '${(lockProgress * 100).round()}%',
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  MGFriendlyState(
+                    icon: Icons.layers_clear_outlined,
+                    title: 'No active investment yet',
+                    message:
+                        'Start with a plan to unlock daily ROI, wallet insights, and principal tracking.',
+                    actionLabel: 'View Plans',
+                    onAction: () => context.go(AppRoutes.investments),
+                  ),
+                const SizedBox(height: 14),
+                MGInlineMessage(
+                  message:
+                      'Principal withdrawals unlock after the lock period. ROI remains available based on plan rules.',
+                  tone: MGMessageTone.info,
+                  icon: Icons.lock_clock_outlined,
                 ),
-              )
-            else
-              MGFriendlyState(
-                icon: Icons.layers_clear_outlined,
-                title: 'No active investment yet',
-                message:
-                    'Start with a plan to unlock daily ROI, wallet insights, and principal tracking.',
-                actionLabel: 'View Plans',
-                onAction: () => context.go(AppRoutes.investments),
-              ),
-            const SizedBox(height: 14),
-            MGInlineMessage(
-              message:
-                  'Principal withdrawals unlock after the lock period. ROI remains available based on plan rules.',
-              tone: MGMessageTone.info,
-              icon: Icons.lock_clock_outlined,
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -231,7 +279,6 @@ class DashboardScreen extends ConsumerWidget {
 double _lockProgress(List<InvestmentRecord> investments) {
   final active = investments.where((i) => i.isActive).toList();
   if (active.isEmpty) return 0;
-  // Use the earliest active plan to show overall lock progress
   active.sort((a, b) => a.createdAt.compareTo(b.createdAt));
   final rec = active.first;
   final start = DateTime.tryParse(rec.createdAt)?.toLocal() ?? DateTime.now();
@@ -252,9 +299,10 @@ class _BalanceMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: context.tokens.textSecondary),
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(color: context.tokens.textSecondary),
         ),
         const SizedBox(height: 4),
         Text(value, style: Theme.of(context).textTheme.titleMedium),
