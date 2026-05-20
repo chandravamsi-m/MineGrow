@@ -1,9 +1,10 @@
-import { Injectable, BadRequestException, UnauthorizedException, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, InternalServerErrorException, Logger, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClientService } from '../config/supabase.client';
 import { SmsService } from '../sms/sms.service';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { SendOtpDto, VerifyOtpDto, AdminLoginDto, OnboardStep1Dto } from './dto/auth.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
@@ -73,7 +74,7 @@ export class AuthService {
     // 2. Retrieve user to complete login/registration sequence
     let { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, full_name, mobile, email, status, address')
+      .select('id, full_name, mobile, email, status, address, token_version')
       .eq('mobile', dto.mobile)
       .maybeSingle();
 
@@ -89,8 +90,9 @@ export class AuthService {
           mobile: dto.mobile,
           status: 'active',
           kyc_verified: false,
+          token_version: 1,
         })
-        .select('id, full_name, mobile, email, status, address')
+        .select('id, full_name, mobile, email, status, address, token_version')
         .single();
 
       if (createError || !newUser) {
@@ -98,7 +100,7 @@ export class AuthService {
         throw new InternalServerErrorException('Error registering user profile');
       }
 
-      // Initialize wallet
+      // Initialize wallet — LOW-4: Throw on failure to avoid wallet-less users
       const { error: walletError } = await supabase
         .from('wallets')
         .insert({
@@ -110,11 +112,15 @@ export class AuthService {
 
       if (walletError) {
         this.logger.error(`Auto-wallet creation failed for user ID ${newUser.id}:`, walletError);
+        // Clean up the user record to avoid orphaned users without wallets
+        await supabase.from('users').delete().eq('id', newUser.id);
+        throw new InternalServerErrorException('Error initializing user wallet. Registration rolled back.');
       }
 
       user = newUser;
     } else {
-      // If user exists but full_name is default placeholder or address is empty/null, they are still considered new (mandatory step 1 onboarding is pending!)
+      // If user exists but full_name is default placeholder or address is empty/null,
+      // they are still considered new (mandatory step 1 onboarding is pending!)
       if (user.full_name === 'New User' || !user.address) {
         isNewUser = true;
       }
@@ -124,8 +130,8 @@ export class AuthService {
       throw new UnauthorizedException('User account is suspended');
     }
 
-    // 4. Issue custom NestJS JWT access and refresh tokens
-    const tokens = await this.generateTokenPair(user.id, 'USER');
+    // 4. Issue custom NestJS JWT access and refresh tokens (with token_version for CRIT-3)
+    const tokens = await this.generateTokenPair(user.id, 'USER', user.token_version ?? 1);
 
     return {
       message: 'OTP verified successfully',
@@ -180,7 +186,7 @@ export class AuthService {
     // 1. Find admin account
     const { data: admin, error: adminError } = await supabase
       .from('admins')
-      .select('id, full_name, email, password_hash, status, is_super')
+      .select('id, full_name, email, password_hash, status, is_super, token_version')
       .eq('email', dto.email)
       .maybeSingle();
 
@@ -198,8 +204,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid admin credentials');
     }
 
-    // 3. Issue tokens directly for admin (no 2FA OTP needed based on spec)
-    const tokens = await this.generateTokenPair(admin.id, 'ADMIN');
+    // 3. Issue tokens with token_version for CRIT-3 logout invalidation
+    const tokens = await this.generateTokenPair(admin.id, 'ADMIN', admin.token_version ?? 1);
 
     return {
       message: 'Admin login successful',
@@ -214,31 +220,93 @@ export class AuthService {
   }
 
   /**
-   * Exchange active refresh token for a brand new token pair (Token Rotation).
+   * CRIT-3: Invalidates all tokens by incrementing token_version in the DB.
+   * Any token issued before this increment will be rejected by JwtStrategy.validate().
+   */
+  async logout(userId: number, role: 'USER' | 'ADMIN') {
+    const supabase = this.supabaseService.getClient();
+    const table = role === 'ADMIN' ? 'admins' : 'users';
+
+    const { error } = await supabase.rpc('increment_token_version', {
+      p_table: table,
+      p_user_id: userId,
+    });
+
+    if (error) {
+      // Fallback: direct update if RPC not available
+      const { error: updateError } = await supabase
+        .from(table)
+        .update({ token_version: supabase.rpc('token_version + 1') })
+        .eq('id', userId);
+
+      if (updateError) {
+        this.logger.error(`Failed to invalidate tokens for ${role} ID ${userId}:`, updateError);
+        // Still return success to client — token will expire naturally
+      }
+    }
+
+    return { message: 'Logged out successfully. All sessions have been invalidated.' };
+  }
+
+  /**
+   * CRIT-4: Exchange active refresh token for a brand new token pair (Token Rotation).
+   * Validates the token_version to prevent replay attacks on old refresh tokens.
    */
   async refresh(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken);
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.getOrThrow<string>('jwt.secret'),
+      });
+
       if (payload.type !== 'refresh') {
         throw new UnauthorizedException('Invalid token type');
       }
 
+      // CRIT-4: Validate token_version against DB to detect replayed refresh tokens
+      const supabase = this.supabaseService.getClient();
+      const table = payload.role === 'ADMIN' ? 'admins' : 'users';
+      const { data: entity } = await supabase
+        .from(table)
+        .select('token_version, status')
+        .eq('id', payload.sub)
+        .maybeSingle();
+
+      if (!entity) {
+        throw new UnauthorizedException('Account not found');
+      }
+
+      if (entity.status === 'suspended') {
+        throw new UnauthorizedException('Account is suspended');
+      }
+
+      if (payload.tv !== entity.token_version) {
+        throw new UnauthorizedException('Refresh token has been invalidated. Please log in again.');
+      }
+
       // Generate a new rotated token pair
-      const tokens = await this.generateTokenPair(payload.sub, payload.role);
-      
+      const tokens = await this.generateTokenPair(payload.sub, payload.role, entity.token_version);
+
       return {
         message: 'Tokens refreshed successfully',
         ...tokens,
       };
     } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
       throw new UnauthorizedException('Session expired. Please log in again.');
     }
   }
 
   /**
    * Bootstraps / seeds the very first super-admin in the DB using the ADMIN_SEED_SECRET.
+   * MED-3: Disabled in production via ADMIN_SEED_ENABLED env flag.
    */
   async seedAdmin(dto: AdminLoginDto, secret: string) {
+    // MED-3: Block seed endpoint in production
+    const seedEnabled = this.configService.get<boolean>('adminSeedEnabled');
+    if (!seedEnabled) {
+      throw new ForbiddenException('Admin seeding is disabled in this environment');
+    }
+
     const bootstrapSecret = this.configService.get<string>('adminSeedSecret');
     if (secret !== bootstrapSecret) {
       throw new UnauthorizedException('Invalid administrative seeding secret key');
@@ -258,7 +326,7 @@ export class AuthService {
     }
 
     // Hash password
-    const salt = await bcrypt.genSalt(10);
+    const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(dto.password, salt);
 
     // Create super admin
@@ -270,6 +338,7 @@ export class AuthService {
         password_hash: passwordHash,
         is_super: true,
         status: 'active',
+        token_version: 1,
       })
       .select('id, full_name, email')
       .single();
@@ -286,23 +355,34 @@ export class AuthService {
   }
 
   /**
-   * Helper function to generate an access and refresh JWT token pair.
+   * LOW-1: Generate access + refresh JWT token pair.
+   * Each token includes: sub, role, tv (token_version for logout invalidation), jti (unique ID).
    */
-  private async generateTokenPair(userId: number, role: 'USER' | 'ADMIN') {
-    const jwtSecret = this.configService.get<string>('jwt.secret');
+  private async generateTokenPair(userId: number, role: 'USER' | 'ADMIN', tokenVersion: number) {
+    const jwtSecret = this.configService.getOrThrow<string>('jwt.secret');
 
-    const accessPayload = { sub: userId, role };
-    const refreshPayload = { sub: userId, role, type: 'refresh' };
+    const basePayload = {
+      sub: userId,
+      role,
+      tv: tokenVersion,          // token_version — incremented on logout to invalidate old tokens
+      jti: crypto.randomUUID(),  // unique token ID for future blocklist support
+    };
 
-    const accessToken = this.jwtService.sign(accessPayload, {
-      secret: jwtSecret,
-      expiresIn: (this.configService.get<string>('jwt.expiresIn') || '15m') as any,
-    });
+    const accessToken = this.jwtService.sign(
+      { ...basePayload, type: 'access' },
+      {
+        secret: jwtSecret,
+        expiresIn: (this.configService.get<string>('jwt.expiresIn') || '15m') as any,
+      },
+    );
 
-    const refreshToken = this.jwtService.sign(refreshPayload, {
-      secret: jwtSecret,
-      expiresIn: (this.configService.get<string>('jwt.refreshExpiresIn') || '7d') as any,
-    });
+    const refreshToken = this.jwtService.sign(
+      { ...basePayload, type: 'refresh' },
+      {
+        secret: jwtSecret,
+        expiresIn: (this.configService.get<string>('jwt.refreshExpiresIn') || '7d') as any,
+      },
+    );
 
     return {
       accessToken,

@@ -12,9 +12,19 @@ async function bootstrap() {
   // 1. Enable Helmet for secure HTTP headers
   app.use(helmet());
 
-  // 2. Enable Cross-Origin Resource Sharing (CORS)
+  // 2. Enable Cross-Origin Resource Sharing (CORS) — CRIT-5: Restrict to known origins
+  const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3001', 'http://localhost:4200'];
   app.enableCors({
-    origin: '*',
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS policy: origin '${origin}' is not allowed`));
+      }
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -22,12 +32,12 @@ async function bootstrap() {
   // 3. Set base path for API versioning (Section 12: Base URL: /api/v1)
   app.setGlobalPrefix('api/v1');
 
-  // 4. Register global transformation and validation pipes
+  // 4. Register global transformation and validation pipes — HIGH-4: forbidNonWhitelisted: true
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
     }),
   );
 

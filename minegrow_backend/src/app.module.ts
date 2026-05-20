@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
 import { SupabaseModule } from './config/supabase.module';
@@ -27,6 +29,14 @@ import { AdminModule } from './admin/admin.module';
     }),
     // Enable system-wide cron scheduling
     ScheduleModule.forRoot(),
+    // CRIT-2: Global rate limiting — defaults apply to all routes unless overridden with @Throttle
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,    // 60 second window
+        limit: 60,     // 60 requests per minute per IP (global default)
+      },
+    ]),
     // Core infra modules
     SupabaseModule,
     AuditModule,
@@ -42,6 +52,13 @@ import { AdminModule } from './admin/admin.module';
     WithdrawalsModule,
     RoiCronModule,
     AdminModule,
+  ],
+  // CRIT-2: Register ThrottlerGuard globally so all routes are rate-limited by default
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

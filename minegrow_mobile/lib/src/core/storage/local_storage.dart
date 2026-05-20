@@ -1,34 +1,65 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('SharedPreferences must be overridden at startup.');
+// HIGH-3: Use flutter_secure_storage instead of SharedPreferences for tokens.
+// On Android: uses Android Keystore (hardware-backed encryption).
+// On iOS: uses iOS Keychain.
+// This prevents token theft via backup extraction or rooted device file access.
+
+final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
+  return const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+  );
 });
 
 final localStorageProvider = Provider<LocalStorage>((ref) {
-  return LocalStorage(ref.watch(sharedPreferencesProvider));
+  return LocalStorage(ref.watch(secureStorageProvider));
 });
 
 class LocalStorage {
-  const LocalStorage(this._preferences);
+  const LocalStorage(this._secure);
 
-  final SharedPreferences _preferences;
+  final FlutterSecureStorage _secure;
 
-  String? readString(String key) => _preferences.getString(key);
+  // Cache for sync reads (populated on first async read)
+  final Map<String, String?> _cache = {};
 
-  Future<bool> writeString(String key, String value) {
-    return _preferences.setString(key, value);
+  // Async token reads — always use these for auth tokens
+  Future<String?> readStringAsync(String key) async {
+    final value = await _secure.read(key: key);
+    _cache[key] = value;
+    return value;
   }
 
-  bool readBool(String key, {bool defaultValue = false}) {
-    return _preferences.getBool(key) ?? defaultValue;
+  // Sync read from cache (call readStringAsync first to warm cache)
+  String? readString(String key) => _cache[key];
+
+  Future<void> writeString(String key, String value) async {
+    await _secure.write(key: key, value: value);
+    _cache[key] = value;
   }
 
-  Future<bool> writeBool(String key, bool value) {
-    return _preferences.setBool(key, value);
+  Future<void> remove(String key) async {
+    await _secure.delete(key: key);
+    _cache.remove(key);
   }
 
-  Future<bool> remove(String key) {
-    return _preferences.remove(key);
+  Future<void> removeAll() async {
+    await _secure.deleteAll();
+    _cache.clear();
+  }
+
+  // Non-sensitive preferences (booleans like theme, onboarding flag)
+  // These go in secure storage too for consistency
+  Future<bool?> readBool(String key) async {
+    final val = await _secure.read(key: key);
+    if (val == null) return null;
+    return val == 'true';
+  }
+
+  Future<void> writeBool(String key, bool value) async {
+    await _secure.write(key: key, value: value.toString());
+    _cache[key] = value.toString();
   }
 }
