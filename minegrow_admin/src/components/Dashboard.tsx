@@ -13,14 +13,14 @@ import {
 } from 'lucide-react';
 
 interface DashboardStats {
-  totalUsers: number;
-  kycVerifiedUsers: number;
+  totalActiveUsers: number;
   totalActiveInvestments: number;
-  totalActiveInvestmentAmount: number;
-  totalPendingDeposits: number;
-  totalPendingWithdrawals: number;
-  systemPrincipalTotal: number;
-  systemRoiTotal: number;
+  totalFundsDeposited: number;
+  totalFundsWithdrawn: number;
+  pendingDepositApprovalsCount: number;
+  pendingWithdrawalRequestsCount: number;
+  activePrincipalLockSum: number;
+  totalDailyRoiDistributed: number;
 }
 
 export const Dashboard: React.FC = () => {
@@ -115,9 +115,9 @@ export const Dashboard: React.FC = () => {
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Members</p>
-            <h3 className="text-2xl font-bold text-slate-100 mt-1">{stats?.totalUsers || 0}</h3>
-            <span className="text-[10px] text-emerald-400 font-semibold">{stats?.kycVerifiedUsers || 0} Verified KYC</span>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Active Members</p>
+            <h3 className="text-2xl font-bold text-slate-100 mt-1">{stats?.totalActiveUsers || 0}</h3>
+            <span className="text-[10px] text-emerald-400 font-semibold">Active accounts</span>
           </div>
         </div>
 
@@ -128,7 +128,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div>
             <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Active Deposits</p>
-            <h3 className="text-2xl font-bold text-slate-100 mt-1">₹{(stats?.totalActiveInvestmentAmount || 0).toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-100 mt-1">₹{(stats?.activePrincipalLockSum || 0).toLocaleString()}</h3>
             <span className="text-[10px] text-slate-400 font-medium">{stats?.totalActiveInvestments || 0} active agreements</span>
           </div>
         </div>
@@ -139,9 +139,9 @@ export const Dashboard: React.FC = () => {
             <TrendingUp className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Principal Ledger</p>
-            <h3 className="text-2xl font-bold text-slate-100 mt-1">₹{(stats?.systemPrincipalTotal || 0).toLocaleString()}</h3>
-            <span className="text-[10px] text-slate-400 font-medium">Accumulated capital</span>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Deposited</p>
+            <h3 className="text-2xl font-bold text-slate-100 mt-1">₹{(stats?.totalFundsDeposited || 0).toLocaleString()}</h3>
+            <span className="text-[10px] text-slate-400 font-medium">Cumulative capital</span>
           </div>
         </div>
 
@@ -151,8 +151,8 @@ export const Dashboard: React.FC = () => {
             <CreditCard className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Earned ROI Ledger</p>
-            <h3 className="text-2xl font-bold text-slate-100 mt-1">₹{(stats?.systemRoiTotal || 0).toLocaleString()}</h3>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">ROI Distributed</p>
+            <h3 className="text-2xl font-bold text-slate-100 mt-1">₹{(stats?.totalDailyRoiDistributed || 0).toLocaleString()}</h3>
             <span className="text-[10px] text-amber-400 font-semibold">Total interest paid</span>
           </div>
         </div>
@@ -229,22 +229,22 @@ export const Dashboard: React.FC = () => {
               <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
                 <span className="text-xs text-slate-400 font-medium">Pending Deposits Review</span>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                  (stats?.totalPendingDeposits || 0) > 0 
+                  (stats?.pendingDepositApprovalsCount || 0) > 0 
                     ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse' 
                     : 'bg-slate-800 text-slate-500'
                 }`}>
-                  {stats?.totalPendingDeposits || 0}
+                  {stats?.pendingDepositApprovalsCount || 0}
                 </span>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
                 <span className="text-xs text-slate-400 font-medium">Pending Withdrawals Queue</span>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
-                  (stats?.totalPendingWithdrawals || 0) > 0 
+                  (stats?.pendingWithdrawalRequestsCount || 0) > 0 
                     ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
                     : 'bg-slate-800 text-slate-500'
                 }`}>
-                  {stats?.totalPendingWithdrawals || 0}
+                  {stats?.pendingWithdrawalRequestsCount || 0}
                 </span>
               </div>
             </div>

@@ -42,10 +42,11 @@ export const LedgerViewer: React.FC = () => {
       
       const response = await api.get<any>(`admin/reports/ledger?page=${page}&limit=${limit}`);
       if (response.success && response.data) {
-        // Handle paginated payload structures
-        const { ledger, total } = response.data;
-        setEntries(ledger || []);
-        setTotalCount(total || 0);
+        // Backend returns: { data: ledger[], pagination: { page, limit, total, totalPages } }
+        const ledgerData = response.data.data || [];
+        const paginationMeta = response.data.pagination || {};
+        setEntries(ledgerData);
+        setTotalCount(paginationMeta.total || 0);
       } else {
         throw new Error(response.message || 'Failed to fetch ledger logs');
       }
