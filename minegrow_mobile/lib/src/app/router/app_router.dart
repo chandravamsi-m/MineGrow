@@ -51,9 +51,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     // Every navigation attempt checks for a valid access token in secure storage.
     redirect: (context, state) async {
       final location = state.matchedLocation;
-      debugPrint('[ROUTER] redirect triggered — location="$location"');
-
-      // Read token from secure storage (async)
       final accessToken = await storage.readStringAsync(
         AuthStorageKeys.accessToken,
       );
@@ -61,28 +58,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isPublicRoute = _publicRoutes.contains(location);
       final isProtectedRoute = _protectedRoutes.contains(location);
 
-      debugPrint(
-        '[ROUTER] isLoggedIn=$isLoggedIn isPublicRoute=$isPublicRoute location="$location"',
-      );
+      if (!isLoggedIn && isProtectedRoute) return AppRoutes.auth;
 
-      // Unauthenticated user trying to access a protected route → send to auth
-      if (!isLoggedIn && isProtectedRoute) {
-        debugPrint(
-          '[ROUTER] REDIRECT → ${AppRoutes.auth} (not logged in, protected route)',
-        );
-        return AppRoutes.auth;
-      }
-
-      // Authenticated user trying to access public auth routes → send to dashboard
-      // (splash screen is excluded — it handles its own routing logic)
+      // Splash handles its own routing; skip redirect there
       if (isLoggedIn && isPublicRoute && location != AppRoutes.splash) {
-        debugPrint(
-          '[ROUTER] REDIRECT → ${AppRoutes.dashboard} (logged in, public route)',
-        );
         return AppRoutes.dashboard;
       }
 
-      debugPrint('[ROUTER] NO redirect — allowing navigation to "$location"');
       return null;
     },
 

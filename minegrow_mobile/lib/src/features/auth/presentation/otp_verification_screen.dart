@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
 
@@ -38,12 +38,8 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   }
 
   Future<void> _loadSavedMobile() async {
-    final mobile = await ref
-        .read(authRepositoryProvider)
-        .readSavedMobileAsync();
-    if (mounted) {
-      setState(() => _savedMobile = mobile);
-    }
+    final mobile = await ref.read(authRepositoryProvider).readSavedMobileAsync();
+    if (mounted) setState(() => _savedMobile = mobile);
   }
 
   void _startResendTimer() {
@@ -72,17 +68,15 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       );
       return;
     }
-
     setState(() {
       _isResending = true;
       _errorText = null;
     });
-
     try {
       final auth = ref.read(authRepositoryProvider);
       await auth.sendOtp(mobile: mobile, purpose: auth.readSavedOtpPurpose());
       if (mounted) {
-        setState(() => _otpController.clear());
+        _otpController.clear();
         _startResendTimer();
       }
     } on ApiException catch (error) {
@@ -102,31 +96,26 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   Future<void> _verify() async {
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
-      setState(() {
-        _errorText = 'Enter the 6 digit OTP sent to your mobile number.';
-      });
+      setState(
+        () => _errorText = 'Enter the 6 digit OTP sent to your mobile number.',
+      );
       return;
     }
-
     setState(() {
       _errorText = null;
       _isSubmitting = true;
     });
-
     try {
       final auth = ref.read(authRepositoryProvider);
-      // Use async read so cold-start restarts don't silently return null
       final mobile = await auth.readSavedMobileAsync();
       if (mobile == null || mobile.isEmpty) {
         throw const ApiException(message: 'Mobile number was not found.');
       }
-
       final session = await auth.verifyOtp(
         mobile: mobile,
         otp: otp,
         purpose: auth.readSavedOtpPurpose(),
       );
-
       if (mounted) {
         if (session.isNewUser) {
           context.go(AppRoutes.onboarding);
@@ -135,15 +124,16 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         }
       }
     } on ApiException catch (error) {
-      setState(() => _errorText = error.message);
+      if (mounted) setState(() => _errorText = error.message);
     } catch (_) {
-      setState(() {
-        _errorText = 'Could not verify OTP. Check your connection and retry.';
-      });
-    } finally {
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        setState(
+          () => _errorText =
+              'Could not verify OTP. Check your connection and retry.',
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -157,112 +147,272 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final displayMobile = _savedMobile ?? '+91 ••••••••••';
+    final tokens = context.tokens;
+    final metrics = context.metrics;
+
+    // Format the saved mobile for display: +91XXXXXXXXXX → +91 XXXXX XXXXX
+    final rawMobile = _savedMobile ?? '';
+    final displayMobile = _formatMobile(rawMobile);
 
     final defaultPinTheme = PinTheme(
-      width: 44,
-      height: 56,
+      width: 48,
+      height: 58,
       textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: context.tokens.textPrimary,
+        color: tokens.textPrimary,
         fontWeight: FontWeight.w700,
       ),
       decoration: BoxDecoration(
-        color: context.tokens.surfaceElevated,
-        borderRadius: BorderRadius.circular(context.metrics.radiusMedium),
-        border: Border.all(color: context.tokens.borderMuted),
+        color: tokens.surfaceElevated,
+        borderRadius: BorderRadius.circular(metrics.radiusMedium),
+        border: Border.all(color: tokens.borderMuted),
       ),
     );
+
     final focusedPinTheme = defaultPinTheme.copyDecorationWith(
-      border: Border.all(color: context.tokens.brandGold, width: 1.4),
+      border: Border.all(color: tokens.brandGold, width: 1.5),
       boxShadow: [
         BoxShadow(
-          color: context.tokens.brandGold.withValues(alpha: 0.18),
+          color: tokens.brandGold.withValues(alpha: 0.22),
           blurRadius: 18,
           spreadRadius: 1,
         ),
       ],
     );
+
     final submittedPinTheme = defaultPinTheme.copyDecorationWith(
-      color: context.tokens.surfaceSoft,
-      border: Border.all(
-        color: context.tokens.brandGold.withValues(alpha: 0.5),
-      ),
-    );
-    final errorPinTheme = defaultPinTheme.copyDecorationWith(
-      border: Border.all(color: context.tokens.danger, width: 1.3),
+      color: tokens.surfaceSoft,
+      border: Border.all(color: tokens.brandGold.withValues(alpha: 0.55)),
     );
 
-    return MGScaffold(
-      appBar: const MGAppBar(
-        title: '',
-        showBack: true,
-        backRoute: AppRoutes.auth,
-      ),
-      backFallbackRoute: AppRoutes.auth,
-      body: Column(
+    final errorPinTheme = defaultPinTheme.copyDecorationWith(
+      border: Border.all(color: tokens.danger, width: 1.4),
+    );
+
+    return Scaffold(
+      backgroundColor: tokens.background,
+      resizeToAvoidBottomInset: true,
+      body: Stack(
         children: [
-          const SizedBox(height: 70),
-          Text('Verify OTP', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          Text(
-            'Enter the 6 digit code sent to',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
+          // ── Atmospheric background glows ─────────────────────────────────
+          Positioned(
+            top: -60,
+            left: -80,
+            child: GlowOrb(color: tokens.brandPurple, size: 280),
           ),
-          const SizedBox(height: 4),
-          Text(displayMobile, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 34),
-          Pinput(
-            length: 6,
-            controller: _otpController,
-            focusNode: _otpFocusNode,
-            enabled: !_isSubmitting,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.done,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            defaultPinTheme: defaultPinTheme,
-            focusedPinTheme: focusedPinTheme,
-            submittedPinTheme: submittedPinTheme,
-            errorPinTheme: errorPinTheme,
-            forceErrorState: _errorText != null,
-            closeKeyboardWhenCompleted: true,
-            onChanged: (_) {
-              if (_errorText != null) {
-                setState(() => _errorText = null);
-              }
-            },
-            onSubmitted: (_) => _verify(),
+          Positioned(
+            bottom: 40,
+            right: -80,
+            child: GlowOrb(color: tokens.brandGold, size: 220),
           ),
-          const SizedBox(height: 24),
-          if (_secondsRemaining > 0)
-            Text(
-              'Resend OTP in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: context.tokens.textSecondary,
+
+          // ── Content ──────────────────────────────────────────────────────
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                metrics.screenPadding,
+                0,
+                metrics.screenPadding,
+                28,
               ),
-            )
-          else
-            TextButton(
-              onPressed: _isResending ? null : _resendOtp,
-              child: Text(_isResending ? 'Resending...' : 'Resend OTP'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Back button ─────────────────────────────────────────
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => context.go(AppRoutes.auth),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 16,
+                          color: tokens.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Change number',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: tokens.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 48),
+
+                  // ── Header ──────────────────────────────────────────────
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: tokens.brandGold.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: tokens.brandGold.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.lock_open_rounded,
+                      color: tokens.brandGold,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Verify your number',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  RichText(
+                    text: TextSpan(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: tokens.textSecondary,
+                      ),
+                      children: [
+                        const TextSpan(text: 'We sent a 6 digit code to '),
+                        TextSpan(
+                          text: displayMobile,
+                          style: TextStyle(
+                            color: tokens.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 44),
+
+                  // ── PIN input ────────────────────────────────────────────
+                  Center(
+                    child: Pinput(
+                      length: 6,
+                      controller: _otpController,
+                      focusNode: _otpFocusNode,
+                      enabled: !_isSubmitting,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      defaultPinTheme: defaultPinTheme,
+                      focusedPinTheme: focusedPinTheme,
+                      submittedPinTheme: submittedPinTheme,
+                      errorPinTheme: errorPinTheme,
+                      forceErrorState: _errorText != null,
+                      closeKeyboardWhenCompleted: false,
+                      separatorBuilder: (index) => const SizedBox(width: 10),
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() => _errorText = null);
+                        }
+                      },
+                      // Auto-submit when all 6 digits are filled
+                      onCompleted: (_) => _verify(),
+                      onSubmitted: (_) => _verify(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // ── Resend row ───────────────────────────────────────────
+                  Center(
+                    child: _secondsRemaining > 0
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 15,
+                                color: tokens.textMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Resend code in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodyMedium?.copyWith(
+                                  color: tokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          )
+                        : TextButton.icon(
+                            onPressed: _isResending ? null : _resendOtp,
+                            icon: _isResending
+                                ? SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: tokens.brandGold,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.refresh_rounded,
+                                    size: 16,
+                                    color: tokens.brandGold,
+                                  ),
+                            label: Text(
+                              _isResending ? 'Sending...' : 'Resend code',
+                              style: TextStyle(color: tokens.brandGold),
+                            ),
+                          ),
+                  ),
+
+                  // ── Animated error ───────────────────────────────────────
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    child: _errorText != null
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 18),
+                            child: MGInlineMessage(
+                              message: _errorText!,
+                              tone: MGMessageTone.danger,
+                              icon: Icons.error_outline,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+
+                  const SizedBox(height: 36),
+
+                  // ── Verify button ────────────────────────────────────────
+                  MGGradientButton(
+                    label: _isSubmitting ? 'Verifying...' : 'Verify Code',
+                    onPressed: _isSubmitting ? null : _verify,
+                  ),
+
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Text(
+                      'Didn\'t receive the code? Check your SMS inbox\nor tap Resend after the timer ends.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: tokens.textMuted,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          if (_errorText != null) ...[
-            const SizedBox(height: 18),
-            MGInlineMessage(
-              message: _errorText!,
-              tone: MGMessageTone.danger,
-              icon: Icons.lock_clock_outlined,
-            ),
-          ],
-          const SizedBox(height: 42),
-          MGGradientButton(
-            label: _isSubmitting ? 'Verifying...' : 'Verify OTP',
-            onPressed: _isSubmitting ? null : _verify,
           ),
         ],
       ),
     );
+  }
+
+  static String _formatMobile(String mobile) {
+    // +91XXXXXXXXXX → +91 XXXXX XXXXX
+    if (mobile.startsWith('+91') && mobile.length == 13) {
+      final digits = mobile.substring(3);
+      return '+91 ${digits.substring(0, 5)} ${digits.substring(5)}';
+    }
+    return mobile.isEmpty ? '+91 ••••• •••••' : mobile;
   }
 }

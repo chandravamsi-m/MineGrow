@@ -45,11 +45,15 @@ class ProfileScreen extends ConsumerWidget {
                     children: [
                       CircleAvatar(
                         radius: 32,
-                        backgroundColor: context.tokens.brandGold,
-                        child: Icon(
-                          Icons.person,
-                          color: context.tokens.background,
-                          size: 36,
+                        backgroundColor: context.tokens.brandGold
+                            .withValues(alpha: 0.18),
+                        child: Text(
+                          _initials(profile.fullName),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: context.tokens.brandGold,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -69,13 +73,22 @@ class ProfileScreen extends ConsumerWidget {
                                     color: context.tokens.textSecondary,
                                   ),
                             ),
-                            Text(
-                              profile.email ?? 'Email not added',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: context.tokens.textSecondary,
-                                  ),
-                            ),
+                            if (profile.email != null)
+                              Text(
+                                profile.email!,
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: context.tokens.textSecondary,
+                                    ),
+                              )
+                            else
+                              Text(
+                                'Email not added',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: context.tokens.textMuted,
+                                    ),
+                              ),
                           ],
                         ),
                       ),
@@ -99,7 +112,7 @@ class ProfileScreen extends ConsumerWidget {
                 _ProfileTile(
                   icon: Icons.account_balance_outlined,
                   title: 'Bank Accounts',
-                  value: '$bankAccountCount Accounts',
+                  value: '$bankAccountCount Account${bankAccountCount == 1 ? '' : 's'}',
                 ),
                 const _ProfileTile(
                   icon: Icons.payments_outlined,
@@ -126,14 +139,7 @@ class ProfileScreen extends ConsumerWidget {
                   icon: Icons.logout,
                   title: 'Logout',
                   titleColor: context.tokens.danger,
-                  onTap: () async {
-                    await ref.read(authRepositoryProvider).logout();
-                    ref.invalidate(profileProvider);
-                    ref.invalidate(bankAccountsProvider);
-                    if (context.mounted) {
-                      context.go(AppRoutes.auth);
-                    }
-                  },
+                  onTap: () => _confirmLogout(context, ref),
                 ),
               ],
             );
@@ -141,6 +147,60 @@ class ProfileScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  static Future<void> _confirmLogout(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.tokens.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.metrics.radiusLarge),
+        ),
+        title: Text(
+          'Log out?',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        content: Text(
+          'You will need to verify your mobile number to log back in.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: context.tokens.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Log out',
+              style: TextStyle(color: context.tokens.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read(authRepositoryProvider).logout();
+    ref.invalidate(profileProvider);
+    ref.invalidate(bankAccountsProvider);
+    if (context.mounted) {
+      context.go(AppRoutes.auth);
+    }
   }
 }
 
