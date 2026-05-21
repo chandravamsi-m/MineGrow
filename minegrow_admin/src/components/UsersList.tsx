@@ -275,7 +275,95 @@ export const UsersList: React.FC = () => {
       <div className="w-full">
         {/* Users Table */}
         <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto custom-scrollbar">
+          {/* Mobile View: Cards stack */}
+          <div className="block sm:hidden divide-y divide-slate-800/60 text-sm">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <div key={idx} className="p-4 space-y-3 animate-pulse">
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-slate-800 rounded w-12"></div>
+                    <div className="h-5 bg-slate-800 rounded w-16"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-800 rounded w-32"></div>
+                    <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <div className="h-5 bg-slate-800 rounded w-20"></div>
+                    <div className="h-8 bg-slate-800 rounded-lg w-20"></div>
+                  </div>
+                </div>
+              ))
+            ) : users.length === 0 ? (
+              <div className="p-12 text-center text-slate-500">
+                No matching user profile records found.
+              </div>
+            ) : (
+              users.map((user) => (
+                <div
+                  key={user.id}
+                  className={`p-4 space-y-3 hover:bg-slate-900/10 transition-colors duration-250 cursor-pointer ${
+                    selectedUser?.id === user.id ? 'bg-slate-900/20' : ''
+                  }`}
+                  onClick={() => viewUserDetail(user.id)}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-xs text-indigo-400 font-semibold">#{user.id}</span>
+                    <div className="flex space-x-1.5">
+                      <span className={`inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        user.kyc_verified
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${user.kyc_verified ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                        <span>{user.kyc_verified ? 'Verified' : 'Pending'}</span>
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                        user.status === 'active'
+                          ? 'bg-blue-500/10 text-blue-400'
+                          : 'bg-rose-500/10 text-rose-400'
+                      }`}>
+                        {user.status === 'active' ? 'Active' : 'Suspended'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold text-slate-200 text-sm">{user.full_name}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Mobile: {user.mobile}</div>
+                    {user.email && (
+                      <div className="text-xs text-slate-500 mt-0.5 truncate">{user.email}</div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-800/40" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => viewUserDetail(user.id)}
+                      className="flex items-center space-x-1 py-1.5 px-3 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-100 text-xs transition-all duration-300"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Details</span>
+                    </button>
+
+                    <button
+                      onClick={() => toggleUserStatus(user)}
+                      disabled={actionLoading}
+                      className={`py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
+                        user.status === 'active'
+                          ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
+                          : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
+                      }`}
+                    >
+                      {user.status === 'active' ? 'Suspend' : 'Activate'}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop/Tablet View: Table layout */}
+          <div className="hidden sm:block overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -409,10 +497,10 @@ export const UsersList: React.FC = () => {
               </div>
 
               {/* Tab Navigation */}
-              <div className="flex border-b border-slate-800 bg-slate-900/30">
+              <div className="flex border-b border-slate-800 bg-slate-900/30 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap">
                 <button
                   onClick={() => setDrawerTab('profile')}
-                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
                     drawerTab === 'profile'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -423,7 +511,7 @@ export const UsersList: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setDrawerTab('wallet')}
-                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
                     drawerTab === 'wallet'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -434,7 +522,7 @@ export const UsersList: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setDrawerTab('investments')}
-                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
                     drawerTab === 'investments'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -445,7 +533,7 @@ export const UsersList: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setDrawerTab('withdrawals')}
-                  className={`flex-1 flex items-center justify-center space-x-1.5 py-3 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
                     drawerTab === 'withdrawals'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
