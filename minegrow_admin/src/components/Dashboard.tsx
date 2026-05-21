@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Users,
   TrendingUp,
@@ -29,6 +31,8 @@ export const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [roiTriggering, setRoiTriggering] = useState(false);
   const [roiStatus, setRoiStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const fetchStats = async () => {
     try {
@@ -41,6 +45,7 @@ export const Dashboard: React.FC = () => {
       }
     } catch (e: any) {
       setError(e.message || 'Network error fetching stats');
+      toast.error(e.message || 'Failed to sync system statistics dashboard');
     } finally {
       setLoading(false);
     }
@@ -50,38 +55,70 @@ export const Dashboard: React.FC = () => {
     fetchStats();
   }, []);
 
-  const triggerDailyRoi = async () => {
-    if (!window.confirm('Are you sure you want to trigger the daily ROI interest payout manually? This will process interest generation for all active maturity investments.')) {
-      return;
-    }
-    setRoiTriggering(true);
-    setRoiStatus(null);
-    try {
-      const response = await api.post<any>('admin/roi/trigger');
-      if (response.success) {
-        setRoiStatus({
-          success: true,
-          message: response.message || response.data?.message || 'Daily interest payout completed successfully!',
-        });
-        // Reload statistics to see updated totals
-        fetchStats();
-      } else {
-        throw new Error(response.message || 'ROI processing routine failed');
+  const triggerDailyRoi = () => {
+    confirm({
+      title: 'Manual Interest Payout Process',
+      message: 'Are you sure you want to trigger the daily ROI interest payout manually? This will process interest generation for all active maturity investments.',
+      confirmText: 'Run Payout Script',
+      type: 'warning',
+      onConfirm: async () => {
+        setRoiTriggering(true);
+        setRoiStatus(null);
+        try {
+          const response = await api.post<any>('admin/roi/trigger');
+          if (response.success) {
+            const msg = response.message || response.data?.message || 'Daily interest payout completed successfully!';
+            setRoiStatus({
+              success: true,
+              message: msg,
+            });
+            toast.success(msg);
+            // Reload statistics to see updated totals
+            fetchStats();
+          } else {
+            throw new Error(response.message || 'ROI processing routine failed');
+          }
+        } catch (e: any) {
+          const errorMsg = e.message || 'Error occurred executing ROI script';
+          setRoiStatus({
+            success: false,
+            message: errorMsg,
+          });
+          toast.error(errorMsg);
+        } finally {
+          setRoiTriggering(false);
+        }
       }
-    } catch (e: any) {
-      setRoiStatus({
-        success: false,
-        message: e.message || 'Error occurred executing ROI script',
-      });
-    } finally {
-      setRoiTriggering(false);
-    }
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      <div className="space-y-8 animate-pulse">
+        {/* Header skeleton */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+          <div className="space-y-2">
+            <div className="h-8 bg-slate-900 rounded-xl w-48"></div>
+            <div className="h-4 bg-slate-900/60 rounded-xl w-72"></div>
+          </div>
+          <div className="h-10 bg-slate-900 rounded-lg w-48 hidden md:block"></div>
+        </div>
+
+        {/* Stats Grid skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <div key={idx} className="h-32 bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6 space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="h-4 bg-slate-800 rounded w-24"></div>
+                <div className="h-8 bg-slate-800 rounded-lg w-8"></div>
+              </div>
+              <div className="h-8 bg-slate-800 rounded w-16 animate-pulse"></div>
+            </div>
+          ))}
+        </div>
+
+        {/* ROI manual panel skeleton */}
+        <div className="h-48 bg-slate-900/40 border border-slate-900/60 rounded-2xl p-6"></div>
       </div>
     );
   }

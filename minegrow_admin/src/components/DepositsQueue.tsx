@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useConfirm } from '../context/ConfirmContext';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   FileText,
   CheckCircle,
   XCircle,
   AlertCircle,
   Eye,
-  Loader2,
   IndianRupee,
   ShieldCheck,
   X,
@@ -38,6 +40,7 @@ export const DepositsQueue: React.FC = () => {
   const [investments, setInvestments] = useState<InvestmentDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   
   // Selected investment for verification overlay
   const [selectedItem, setSelectedItem] = useState<InvestmentDetail | null>(null);
@@ -75,29 +78,36 @@ export const DepositsQueue: React.FC = () => {
   }, [statusFilter]);
 
   const approveInvestment = async (id: number) => {
-    if (!window.confirm('Are you sure you want to approve this deposit transaction? This will create an active maturity contract, generate a wallet ledger record, and notify the user.')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/investments/${id}/approve`);
-      if (response.success) {
-        alert('Deposit transaction approved and contract activated');
-        fetchInvestments();
-      } else {
-        alert(response.message || 'Approval processing failed');
+    confirm({
+      title: 'Approve Deposit Transaction',
+      message: 'Are you sure you want to approve this deposit transaction? This will create an active maturity contract, generate a wallet ledger record, and notify the user.',
+      confirmText: 'Approve Deposit',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/investments/${id}/approve`);
+          if (response.success) {
+            toast.success('Deposit transaction approved and contract activated');
+            fetchInvestments();
+            if (selectedItem?.id === id) {
+              setSelectedItem(null);
+            }
+          } else {
+            toast.error(response.message || 'Approval processing failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred approving deposit');
+        } finally {
+          setActionLoading(false);
+        }
       }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred approving deposit');
-    } finally {
-      setActionLoading(false);
-    }
+    });
   };
 
   const rejectInvestment = async (id: number) => {
     if (!rejectReason.trim()) {
-      alert('Please specify the reason for transaction rejection.');
+      toast.warning('Please specify the reason for transaction rejection.');
       return;
     }
     
@@ -105,15 +115,18 @@ export const DepositsQueue: React.FC = () => {
     try {
       const response = await api.post<any>(`admin/investments/${id}/reject`, { reason: rejectReason });
       if (response.success) {
-        alert('Deposit transaction marked as rejected');
+        toast.success('Deposit transaction marked as rejected');
         setShowRejectForm(false);
         setRejectReason('');
         fetchInvestments();
+        if (selectedItem?.id === id) {
+          setSelectedItem(null);
+        }
       } else {
-        alert(response.message || 'Rejection failed');
+        toast.error(response.message || 'Rejection failed');
       }
     } catch (e: any) {
-      alert(e.message || 'Error occurred rejecting deposit');
+      toast.error(e.message || 'Error occurred rejecting deposit');
     } finally {
       setActionLoading(false);
     }
@@ -184,14 +197,18 @@ export const DepositsQueue: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-500">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                        <span>Loading transactional ledgers...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                      <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
+                      <td className="p-4">
+                        <div className="h-4 bg-slate-800 rounded w-28 mb-1.5"></div>
+                        <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                      </td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-16"></div></td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                      <td className="p-4 pr-6 text-center"><div className="h-8 bg-slate-800 rounded-lg w-8 mx-auto"></div></td>
+                    </tr>
+                  ))
                 ) : investments.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-500">

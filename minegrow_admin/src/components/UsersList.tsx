@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Search,
   Filter,
@@ -8,7 +10,6 @@ import {
   AlertCircle,
   Eye,
   ShieldAlert,
-  Loader2,
   FileText,
   Wallet,
   Briefcase,
@@ -39,6 +40,8 @@ export const UsersList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
   
   // Selected user for details drawer
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
@@ -102,66 +105,75 @@ export const UsersList: React.FC = () => {
           kyc_rejection_reason: latestKyc?.admin_notes || null,
         });
       } else {
-        alert(response.message || 'Failed to fetch user details');
+        toast.error(response.message || 'Failed to fetch user details');
       }
     } catch (e: any) {
-      alert(e.message || 'Error fetching user profile details');
+      toast.error(e.message || 'Error fetching user profile details');
     } finally {
       setDetailsLoading(false);
     }
   };
 
-  const toggleUserStatus = async (user: UserDetail) => {
+  const toggleUserStatus = (user: UserDetail) => {
     const nextStatus = user.status === 'active' ? 'suspended' : 'active';
-    if (!window.confirm(`Are you sure you want to change the status of ${user.full_name} to ${nextStatus.toUpperCase()}?`)) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.patch<any>(`admin/users/${user.id}/status`, { status: nextStatus });
-      if (response.success) {
-        // Update local list
-        setUsers(users.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
-        if (selectedUser?.id === user.id) {
-          setSelectedUser({ ...selectedUser, status: nextStatus });
+    confirm({
+      title: `${nextStatus === 'suspended' ? 'Suspend' : 'Activate'} Client Account`,
+      message: `Are you sure you want to change the status of ${user.full_name} to ${nextStatus.toUpperCase()}?`,
+      confirmText: nextStatus === 'suspended' ? 'Suspend Account' : 'Activate Account',
+      type: nextStatus === 'suspended' ? 'danger' : 'info',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.patch<any>(`admin/users/${user.id}/status`, { status: nextStatus });
+          if (response.success) {
+            // Update local list
+            setUsers(users.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
+            if (selectedUser?.id === user.id) {
+              setSelectedUser({ ...selectedUser, status: nextStatus });
+            }
+            toast.success(`User account status set to ${nextStatus.toUpperCase()} successfully`);
+          } else {
+            toast.error(response.message || 'Failed to update status');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Network error updating user status');
+        } finally {
+          setActionLoading(false);
         }
-      } else {
-        alert(response.message || 'Failed to update status');
       }
-    } catch (e: any) {
-      alert(e.message || 'Network error updating user status');
-    } finally {
-      setActionLoading(false);
-    }
+    });
   };
 
-  const approveKyc = async (userId: number) => {
-    if (!window.confirm('Are you sure you want to approve this KYC submission?')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/users/${userId}/kyc/verify`);
-      if (response.success) {
-        alert('KYC verification status approved successfully');
-        // Reload list and details
-        fetchUsers();
-        viewUserDetail(userId);
-      } else {
-        alert(response.message || 'Verification approval failed');
+  const approveKyc = (userId: number) => {
+    confirm({
+      title: 'Approve KYC Submission',
+      message: 'Are you sure you want to approve this KYC submission? This will mark the client onboarding documents as valid.',
+      confirmText: 'Approve KYC',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/users/${userId}/kyc/verify`);
+          if (response.success) {
+            toast.success('KYC verification status approved successfully');
+            // Reload list and details
+            fetchUsers();
+            viewUserDetail(userId);
+          } else {
+            toast.error(response.message || 'Verification approval failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Network error verifying KYC');
+        } finally {
+          setActionLoading(false);
+        }
       }
-    } catch (e: any) {
-      alert(e.message || 'Network error verifying KYC');
-    } finally {
-      setActionLoading(false);
-    }
+    });
   };
 
   const rejectKyc = async (userId: number) => {
     if (!rejectReason.trim()) {
-      alert('Please specify a rejection reason for the client record.');
+      toast.warning('Please specify a rejection reason for the client record.');
       return;
     }
     
@@ -169,17 +181,17 @@ export const UsersList: React.FC = () => {
     try {
       const response = await api.post<any>(`admin/users/${userId}/kyc/reject`, { reason: rejectReason });
       if (response.success) {
-        alert('KYC submission marked as rejected');
+        toast.success('KYC submission marked as rejected');
         setShowRejectForm(false);
         setRejectReason('');
         // Reload list and details
         fetchUsers();
         viewUserDetail(userId);
       } else {
-        alert(response.message || 'Rejection action failed');
+        toast.error(response.message || 'Rejection action failed');
       }
     } catch (e: any) {
-      alert(e.message || 'Network error rejecting KYC');
+      toast.error(e.message || 'Network error rejecting KYC');
     } finally {
       setActionLoading(false);
     }
@@ -245,14 +257,18 @@ export const UsersList: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-500">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                        <span>Loading member database records...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                      <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-8"></div></td>
+                      <td className="p-4">
+                        <div className="h-4 bg-slate-800 rounded w-32 mb-1.5"></div>
+                        <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                      </td>
+                      <td className="p-4"><div className="h-6 bg-slate-800 rounded-full w-20"></div></td>
+                      <td className="p-4"><div className="h-5 bg-slate-800 rounded w-16"></div></td>
+                      <td className="p-4 pr-6 text-center"><div className="h-8 bg-slate-800 rounded-lg w-8 mx-auto"></div></td>
+                    </tr>
+                  ))
                 ) : users.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-500">
@@ -410,9 +426,18 @@ export const UsersList: React.FC = () => {
               {/* Body */}
               <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
                 {detailsLoading ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-500 space-y-3">
-                    <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
-                    <span>Fetching profile dossier...</span>
+                  <div className="space-y-6 animate-pulse">
+                    <div className="bg-slate-900/20 rounded-xl p-4 border border-slate-900 h-28 space-y-3">
+                      <div className="h-5 bg-slate-800 rounded w-1/3"></div>
+                      <div className="h-4 bg-slate-800 rounded w-1/2"></div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="h-4 bg-slate-900 rounded w-24"></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="h-20 bg-slate-900/60 rounded-xl"></div>
+                        <div className="h-20 bg-slate-900/60 rounded-xl"></div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>

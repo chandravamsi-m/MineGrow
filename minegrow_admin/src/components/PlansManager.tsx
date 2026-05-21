@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useToast } from '../context/ToastContext';
 import {
   Sliders,
   Check,
   AlertCircle,
-  Loader2,
   Percent,
   Lock,
   Layers,
@@ -27,6 +27,7 @@ export const PlansManager: React.FC = () => {
   const [plans, setPlans] = useState<InvestmentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   
   // Selected plan for inline updates editing
   const [editingPlan, setEditingPlan] = useState<InvestmentPlan | null>(null);
@@ -75,58 +76,64 @@ export const PlansManager: React.FC = () => {
   };
 
   const savePlanChanges = async (id: number) => {
-    if (!window.confirm('Are you sure you want to save limit and ROI changes to this plan? This updates constraints for all future client agreements immediately.')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      // Build clean DTO matching backend class-validator constraints
-      const dto = {
-        planName: editForm.plan_name,
-        minAmount: editForm.min_amount,
-        maxAmount: editForm.max_amount,
-        dailyRoiPct: editForm.daily_roi_pct,
-        lockDays: editForm.lock_days,
-        roiWithdrawDays: editForm.roi_withdraw_days,
-      };
-      
-      const response = await api.put<any>(`admin/plans/${id}`, dto);
-      if (response.success) {
-        alert('Plan parameters updated successfully');
-        setEditingPlan(null);
-        setEditForm({});
-        fetchPlans();
-      } else {
-        alert(response.message || 'Plan parameter update failed');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred saving plan parameters');
-    } finally {
-      setActionLoading(false);
-    }
+    confirm({
+      title: 'Save Plan Changes',
+      message: 'Are you sure you want to save limit and ROI changes to this plan? This updates constraints for all future client agreements immediately.',
+      confirmText: 'Save Changes',
+      type: 'warning',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const dto = {
+            planName: editForm.plan_name,
+            minAmount: editForm.min_amount,
+            maxAmount: editForm.max_amount,
+            dailyRoiPct: editForm.daily_roi_pct,
+            lockDays: editForm.lock_days,
+            roiWithdrawDays: editForm.roi_withdraw_days,
+          };
+          const response = await api.put<any>(`admin/plans/${id}`, dto);
+          if (response.success) {
+            toast.success('Plan parameters updated successfully');
+            setEditingPlan(null);
+            setEditForm({});
+            fetchPlans();
+          } else {
+            toast.error(response.message || 'Plan parameter update failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred saving plan parameters');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const togglePlanState = async (id: number, currentActive: boolean) => {
     const actionWord = currentActive ? 'DEACTIVATE' : 'ACTIVATE';
-    if (!window.confirm(`Are you sure you want to ${actionWord} this investment plan?`)) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.patch<any>(`admin/plans/${id}/toggle`);
-      if (response.success) {
-        alert(`Plan toggled successfully`);
-        fetchPlans();
-      } else {
-        alert(response.message || 'Toggling plan state failed');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred toggling plan state');
-    } finally {
-      setActionLoading(false);
-    }
+    confirm({
+      title: `${actionWord} Plan`,
+      message: `Are you sure you want to ${actionWord.toLowerCase()} this investment plan?`,
+      confirmText: actionWord,
+      type: 'warning',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.patch<any>(`admin/plans/${id}/toggle`);
+          if (response.success) {
+            toast.success(`Plan ${currentActive ? 'deactivated' : 'activated'} successfully`);
+            fetchPlans();
+          } else {
+            toast.error(response.message || 'Toggling plan state failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred toggling plan state');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   return (
@@ -144,8 +151,25 @@ export const PlansManager: React.FC = () => {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start animate-pulse">
+          <div className="xl:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6 h-64 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="h-5 bg-slate-850 rounded w-1/3"></div>
+                    <div className="h-6 bg-slate-850 rounded-full w-16"></div>
+                  </div>
+                  <div className="space-y-2 pt-2">
+                    <div className="h-4 bg-slate-850 rounded w-2/3"></div>
+                    <div className="h-4 bg-slate-850 rounded w-1/2"></div>
+                    <div className="h-4 bg-slate-850 rounded w-3/4"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="xl:col-span-1 bg-slate-900/40 border border-slate-900/80 rounded-2xl p-6 h-96"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
