@@ -53,15 +53,16 @@ CREATE TABLE IF NOT EXISTS investment_plan (
     lock_days INTEGER NOT NULL DEFAULT 90,
     roi_withdraw_days INTEGER NOT NULL DEFAULT 30,
     is_active BOOLEAN DEFAULT true NOT NULL,
+    image_url TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Seed plan metadata (Starter, Silver, Gold Plans)
-INSERT INTO investment_plan (id, plan_name, min_amount, max_amount, daily_roi_pct, lock_days, roi_withdraw_days, is_active)
+INSERT INTO investment_plan (id, plan_name, min_amount, max_amount, daily_roi_pct, lock_days, roi_withdraw_days, is_active, image_url)
 VALUES 
-(1, 'Starter Plan', 1000.00, 10000.00, 1.00, 90, 30, true),
-(2, 'Silver Plan', 10001.00, 50000.00, 1.20, 90, 30, true),
-(3, 'Gold Plan', 50001.00, 500000.00, 1.50, 90, 30, true)
+(1, 'Starter Plan', 1000.00, 10000.00, 1.00, 90, 30, true, 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iMTAwJSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzA2NGU0MCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzExMTgxMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiByeD0iMTYiIGZpbGw9InVybCgjZzIpIi8+PGNpcmNsZSBjeD0iMzUwIiBjeT0iNTAiIHI9IjgwIiBmaWxsPSIjMTBkOTgxIiBmaWxsLW9wYWNpdHk9IjAuMDUiIGZpbHRlcj0iYmx1cigyMHB4KSIvPjxwYXRoIGQ9Ik0wIDE1MCBRIDEwMCAxMTAgMjAwIDE1MCBUIDQwMCAxNzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzEwZDk4MSIgc3Ryb2tlLW9wYWNpdHk9IjAuMTUiIHN0cm9rZS13aWR0aD0iMiIvPjxwYXRoIGQ9Ik0wIDE3MCBRIDEwMCAxMzAgMjAwIDE3MCBUIDQwMCAxOTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzEwZDk4MSIgc3Ryb2tlLW9wYWNpdHk9IjAuMDgiIHN0cm9rZS13aWR0aD0iMS41Ii8+PC9zdmc+'),
+(2, 'Silver Plan', 10001.00, 50000.00, 1.20, 90, 30, true, 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iMTAwJSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMiIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzFmMjkzNyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzExMTgxMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiByeD0iMTYiIGZpbGw9InVybCgjZzIpIi8+PGNpcmNsZSBjeD0iMzUwIiBjeT0iNTAiIHI9IjgwIiBmaWxsPSIjMzg4MmY2IiBmaWxsLW9wYWNpdHk9IjAuMDUiIGZpbHRlcj0iYmx1cigyMHB4KSIvPjxwYXRoIGQ9Ik0tNTAgMTAwIEw0NTAgMjAwIE0tNTAgMTIwIEw0NTAgMjIwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzOGIyZjYiIHN0cm9rZS1vcGFjaXR5PSIwLjE1IiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4='),
+(3, 'Gold Plan', 50001.00, 500000.00, 1.50, 90, 30, true, 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iMTAwJSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzc4M2UwOCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzExMTgxMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiByeD0iMTYiIGZpbGw9InVybCgjZzMpIi8+PGNpcmNsZSBjeD0iMzUwIiBjeT0iNTAiIHI9IjgwIiBmaWxsPSIjZjViMDVjIiBmaWxsLW9wYWNpdHk9IjAuMDgiIGZpbHRlcj0iYmx1cigyMHB4KSIvPjxwYXRoIGQ9Ik0yMDAgMCBMMjAwIDI1MCBNMTAwIDEyNSBMMzAwIDEyNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjViMDVjIiBzdHJva2Utb3BhY2l0eT0iMC4xIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwYXRoIGQ9Ik0wIDUwIEw0MDAgMjAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmNWIwNWMiIHN0cm9rZS1vcGFjaXR5PSIwLjEzIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=')
 ON CONFLICT (id) DO UPDATE SET
   plan_name = EXCLUDED.plan_name,
   min_amount = EXCLUDED.min_amount,
@@ -69,7 +70,8 @@ ON CONFLICT (id) DO UPDATE SET
   daily_roi_pct = EXCLUDED.daily_roi_pct,
   lock_days = EXCLUDED.lock_days,
   roi_withdraw_days = EXCLUDED.roi_withdraw_days,
-  is_active = EXCLUDED.is_active;
+  is_active = EXCLUDED.is_active,
+  image_url = EXCLUDED.image_url;
 
 -- 4. Create 'investments' table
 CREATE TABLE IF NOT EXISTS investments (

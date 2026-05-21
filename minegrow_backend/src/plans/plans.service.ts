@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
-import { UpdatePlanDto } from './dto/plans.dto';
+import { UpdatePlanDto, CreatePlanDto } from './dto/plans.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
 @Injectable()
@@ -98,6 +98,7 @@ export class PlansService {
         daily_roi_pct: dto.dailyRoiPct,
         lock_days: dto.lockDays,
         roi_withdraw_days: dto.roiWithdrawDays,
+        image_url: dto.imageUrl !== undefined ? dto.imageUrl : previousPlan.image_url,
         updated_at: getISTDateTimeString(),
       })
       .eq('id', id)
@@ -163,5 +164,65 @@ export class PlansService {
     );
 
     return updatedPlan;
+  }
+
+  async createPlan(adminId: number, dto: CreatePlanDto, ipAddress?: string) {
+    const supabase = this.supabaseService.getClient();
+    const { data: newPlan, error } = await supabase
+      .from('investment_plan')
+      .insert({
+        plan_name: dto.planName,
+        min_amount: dto.minAmount,
+        max_amount: dto.maxAmount,
+        daily_roi_pct: dto.dailyRoiPct,
+        lock_days: dto.lockDays,
+        roi_withdraw_days: dto.roiWithdrawDays,
+        image_url: dto.imageUrl ?? null,
+        is_active: true,
+        created_at: getISTDateTimeString(),
+        updated_at: getISTDateTimeString(),
+      })
+      .select('*')
+      .single();
+
+    if (error || !newPlan) {
+      this.logger.error('Failed to create investment plan:', error);
+      throw new InternalServerErrorException('Error creating investment plan');
+    }
+
+    await this.auditService.log(
+      'admin',
+      adminId,
+      'CREATE_INVESTMENT_PLAN',
+      null,
+      newPlan.id,
+      { after: newPlan },
+      ipAddress,
+    );
+
+    return newPlan;
+  }
+
+  async deletePlan(adminId: number, id: number, ipAddress?: string) {
+    const supabase = this.supabaseService.getClient();
+    // Fetch current plan for audit
+    const previousPlan = await this.getPlanById(id, false);
+
+    const { error } = await supabase.from('investment_plan').delete().eq('id', id);
+    if (error) {
+      this.logger.error(`Failed to delete plan ID ${id}:`, error);
+      throw new InternalServerErrorException('Error deleting investment plan');
+    }
+
+    await this.auditService.log(
+      'admin',
+      adminId,
+      'DELETE_INVESTMENT_PLAN',
+      null,
+      id,
+      { before: previousPlan },
+      ipAddress,
+    );
+    return { success: true };
   }
 }

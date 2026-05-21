@@ -206,10 +206,10 @@ export const WithdrawalsQueue: React.FC = () => {
       )}
 
       {/* Navigation tabs */}
-      <div className="flex border-b border-slate-800 space-x-6">
+      <div className="flex border-b border-slate-800 space-x-4 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap">
         <button
           onClick={() => setStatusFilter('pending')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'pending'
               ? 'border-indigo-500 text-indigo-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -219,7 +219,7 @@ export const WithdrawalsQueue: React.FC = () => {
         </button>
         <button
           onClick={() => setStatusFilter('approved')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'approved'
               ? 'border-amber-500 text-amber-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -229,7 +229,7 @@ export const WithdrawalsQueue: React.FC = () => {
         </button>
         <button
           onClick={() => setStatusFilter('completed')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'completed'
               ? 'border-emerald-500 text-emerald-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -239,7 +239,7 @@ export const WithdrawalsQueue: React.FC = () => {
         </button>
         <button
           onClick={() => setStatusFilter('rejected')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'rejected'
               ? 'border-rose-500 text-rose-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -253,7 +253,105 @@ export const WithdrawalsQueue: React.FC = () => {
       <div className="w-full">
         {/* Main table */}
         <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto custom-scrollbar">
+          {/* Mobile View: Cards stack */}
+          <div className="block sm:hidden divide-y divide-slate-800/60 text-sm">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <div key={idx} className="p-4 space-y-3 animate-pulse">
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-slate-800 rounded w-12"></div>
+                    <div className="h-5 bg-slate-800 rounded w-16"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-800 rounded w-32"></div>
+                    <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <div className="h-4 bg-slate-800 rounded w-16"></div>
+                    <div className="h-8 bg-slate-800 rounded-lg w-10"></div>
+                  </div>
+                </div>
+              ))
+            ) : withdrawals.length === 0 ? (
+              <div className="p-12 text-center text-slate-500">
+                No withdrawal records match this filter tab.
+              </div>
+            ) : (
+              withdrawals.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-4 space-y-3 hover:bg-slate-900/10 transition-colors duration-250 cursor-pointer ${
+                    selectedItem?.id === item.id ? 'bg-slate-900/40' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectedItem(item);
+                    setShowRejectForm(false);
+                    setRejectReason('');
+                  }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-xs text-indigo-400 font-semibold">#{item.id}</span>
+                    <div className="flex items-center space-x-1.5">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                        item.withdrawal_type === 'roi'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                      }`}>
+                        {item.withdrawal_type === 'roi' ? 'ROI Profit' : 'Principal'}
+                      </span>
+                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                        item.status === 'completed'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : item.status === 'approved'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : item.status === 'pending'
+                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse'
+                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold text-slate-200 text-sm">
+                      {item.users?.full_name || 'System Member'}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Mobile: {item.users?.mobile || `ID #${item.user_id}`}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Requested: {new Date(item.requested_at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-800/40" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">Transfer Amount</span>
+                      <div className="flex items-center text-slate-200 font-bold">
+                        <IndianRupee className="w-3.5 h-3.5 mr-0.5 text-indigo-400" />
+                        <span>{item.amount.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setShowRejectForm(false);
+                        setRejectReason('');
+                      }}
+                      className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-all duration-300"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop/Tablet View: Table layout */}
+          <div className="hidden sm:block overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
