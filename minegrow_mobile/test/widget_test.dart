@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:minegrow_mobile/src/app/app.dart';
-import 'package:minegrow_mobile/src/app/theme/app_theme.dart';
-import 'package:minegrow_mobile/src/features/history/presentation/withdrawal_history_screen.dart';
-import 'package:minegrow_mobile/src/features/investments/data/investments_repository.dart';
-import 'package:minegrow_mobile/src/features/investments/presentation/investment_plans_screen.dart';
-import 'package:minegrow_mobile/src/features/withdrawal/data/withdrawals_repository.dart';
-import 'package:minegrow_mobile/src/shared/data/app_models.dart';
-import 'package:minegrow_mobile/src/shared/data/mock_data.dart';
+import 'package:minegrow/src/app/app.dart';
+import 'package:minegrow/src/app/theme/app_theme.dart';
+import 'package:minegrow/src/features/history/presentation/withdrawal_history_screen.dart';
+import 'package:minegrow/src/features/investments/data/investments_repository.dart';
+import 'package:minegrow/src/features/investments/presentation/investment_plans_screen.dart';
+import 'package:minegrow/src/features/withdrawal/data/withdrawals_repository.dart';
+import 'package:minegrow/src/shared/data/app_models.dart';
+import 'package:minegrow/src/shared/data/mock_data.dart';
 
 void main() {
   testWidgets('renders the MineGrow splash screen', (tester) async {

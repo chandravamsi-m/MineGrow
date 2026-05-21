@@ -304,6 +304,13 @@ class UserProfile {
   }
 }
 
+class PaymentArgs {
+  const PaymentArgs({required this.plan, required this.amount});
+
+  final InvestmentPlan plan;
+  final num amount;
+}
+
 class AuthSession {
   const AuthSession({
     required this.accessToken,

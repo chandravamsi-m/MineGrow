@@ -11,6 +11,8 @@ import '../../features/history/presentation/roi_history_screen.dart';
 import '../../features/history/presentation/withdrawal_history_screen.dart';
 import '../../features/investments/presentation/investment_details_screen.dart';
 import '../../features/investments/presentation/investment_plans_screen.dart';
+import '../../features/investments/presentation/payment_pending_screen.dart';
+import '../../features/investments/presentation/payment_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
@@ -31,6 +33,8 @@ const _protectedRoutes = {
   AppRoutes.dashboard,
   AppRoutes.investments,
   AppRoutes.investmentDetails,
+  AppRoutes.investmentPayment,
+  AppRoutes.investmentPending,
   AppRoutes.wallet,
   AppRoutes.roiHistory,
   AppRoutes.withdrawal,
@@ -113,6 +117,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ? state.extra! as InvestmentPlan
                   : null,
             ),
+          ),
+          GoRoute(
+            path: AppRoutes.investmentPayment,
+            name: 'investment-payment',
+            builder: (context, state) {
+              final args = state.extra;
+              if (args is! PaymentArgs) {
+                return const InvestmentPlansScreen();
+              }
+              return PaymentScreen(args: args);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.investmentPending,
+            name: 'investment-pending',
+            builder: (context, state) => const PaymentPendingScreen(),
           ),
           GoRoute(
             path: AppRoutes.wallet,

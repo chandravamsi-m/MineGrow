@@ -1,14 +1,11 @@
-import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
-import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
-import '../../wallet/data/wallet_repository.dart';
 import '../data/investments_repository.dart';
 
 class InvestmentDetailsScreen extends ConsumerStatefulWidget {
@@ -24,9 +21,7 @@ class InvestmentDetailsScreen extends ConsumerStatefulWidget {
 class _InvestmentDetailsScreenState
     extends ConsumerState<InvestmentDetailsScreen> {
   final _amountController = TextEditingController();
-  PlatformFile? _proofFile;
-  String? _messageText;
-  bool _isSubmitting = false;
+  String? _errorText;
   bool _amountInitialized = false;
 
   @override
@@ -35,105 +30,25 @@ class _InvestmentDetailsScreenState
     super.dispose();
   }
 
-  Future<void> _selectProof() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'pdf'],
-      withData: true,
-    );
-
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-
-    setState(() {
-      _proofFile = result.files.single;
-      _messageText = null;
-    });
-  }
-
-  Future<void> _submit(InvestmentPlan plan) async {
+  void _proceedToPayment(InvestmentPlan plan) {
     final amount = num.tryParse(_amountController.text.trim());
-    final proofFile = _proofFile;
 
-    setState(() {
-      if (amount == null || amount <= 0) {
-        _messageText = 'Enter a valid investment amount before submitting.';
-        return;
-      }
-
-      if (amount < plan.minAmount || amount > plan.maxAmount) {
-        _messageText =
-            '${plan.name} accepts investments from ${formatCurrency(plan.minAmount)} to ${formatCurrency(plan.maxAmount)}.';
-        return;
-      }
-
-      if (proofFile == null) {
-        _messageText = 'Upload a payment proof screenshot to continue.';
-        return;
-      }
-
-      _messageText = null;
-      _isSubmitting = true;
-    });
-
-    if (_messageText != null || amount == null || proofFile == null) {
+    if (amount == null || amount <= 0) {
+      setState(() => _errorText = 'Enter a valid investment amount.');
       return;
     }
 
-    try {
-      final MultipartFile proof;
-      if (kIsWeb) {
-        final bytes = proofFile.bytes;
-        if (bytes == null) {
-          throw const ApiException(message: 'Could not read payment proof file bytes.');
-        }
-        proof = MultipartFile.fromBytes(
-          bytes,
-          filename: proofFile.name,
-        );
-      } else {
-        final path = proofFile.path;
-        if (path == null || path.isEmpty) {
-          throw const ApiException(message: 'Could not locate payment proof file path.');
-        }
-        proof = await MultipartFile.fromFile(
-          path,
-          filename: proofFile.name,
-        );
-      }
-
-      await ref
-          .read(investmentsRepositoryProvider)
-          .createInvestment(
-            planId: plan.id,
-            amount: amount,
-            paymentProof: proof,
-          );
-      ref.invalidate(ownInvestmentsProvider);
-      ref.invalidate(walletSummaryProvider);
-      if (mounted) {
-        setState(() {
-          _messageText =
-              'Investment submitted. Admin approval will update your wallet.';
-          _proofFile = null;
-        });
-      }
-    } on ApiException catch (error) {
-      if (mounted) {
-        setState(() => _messageText = error.message);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _messageText = 'Could not submit investment. Try again later.';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+    if (amount < plan.minAmount || amount > plan.maxAmount) {
+      setState(() => _errorText =
+          '${plan.name} accepts ${formatCurrency(plan.minAmount)} – ${formatCurrency(plan.maxAmount)}.');
+      return;
     }
+
+    setState(() => _errorText = null);
+    context.go(
+      AppRoutes.investmentPayment,
+      extra: PaymentArgs(plan: plan, amount: amount),
+    );
   }
 
   @override
@@ -157,59 +72,47 @@ class _InvestmentDetailsScreenState
       body: selectedPlan == null
           ? plansState.when(
               loading: () => const MGLoadingList(itemCount: 2),
-              error: (error, stackTrace) => MGFriendlyState(
+              error: (e, st) => MGFriendlyState(
                 icon: Icons.cloud_off_outlined,
                 title: 'Plan details could not load',
                 message:
-                    'Refresh plans and select one again before creating an investment.',
+                    'Refresh plans and select one again before proceeding.',
                 actionLabel: 'Retry',
                 onAction: () => ref.invalidate(investmentPlansProvider),
               ),
               data: (_) => MGFriendlyState(
                 icon: Icons.landscape_outlined,
                 title: 'No plan selected',
-                message:
-                    'Choose an active investment plan before uploading payment proof.',
+                message: 'Choose an active investment plan to continue.',
                 actionLabel: 'Refresh Plans',
                 onAction: () => ref.invalidate(investmentPlansProvider),
               ),
             )
-          : _InvestmentForm(
+          : _AmountForm(
               plan: selectedPlan,
               amountController: _amountController,
-              proofFileName: _proofFile?.name,
-              messageText: _messageText,
-              isSubmitting: _isSubmitting,
-              onSelectProof: _selectProof,
-              onSubmit: () => _submit(selectedPlan),
+              errorText: _errorText,
+              onProceed: () => _proceedToPayment(selectedPlan),
             ),
     );
   }
 }
 
-class _InvestmentForm extends StatelessWidget {
-  const _InvestmentForm({
+class _AmountForm extends StatelessWidget {
+  const _AmountForm({
     required this.plan,
     required this.amountController,
-    required this.proofFileName,
-    required this.messageText,
-    required this.isSubmitting,
-    required this.onSelectProof,
-    required this.onSubmit,
+    required this.errorText,
+    required this.onProceed,
   });
 
   final InvestmentPlan plan;
   final TextEditingController amountController;
-  final String? proofFileName;
-  final String? messageText;
-  final bool isSubmitting;
-  final VoidCallback onSelectProof;
-  final VoidCallback onSubmit;
+  final String? errorText;
+  final VoidCallback onProceed;
 
   @override
   Widget build(BuildContext context) {
-    final success = messageText?.startsWith('Investment submitted') == true;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,7 +173,7 @@ class _InvestmentForm extends StatelessWidget {
         ),
         const SizedBox(height: 22),
         MGTextField(
-          label: 'Enter Amount',
+          label: 'Investment Amount',
           hintText: plan.minAmount.toStringAsFixed(0),
           keyboardType: TextInputType.number,
           controller: amountController,
@@ -281,40 +184,53 @@ class _InvestmentForm extends StatelessWidget {
           spacing: 8,
           runSpacing: 6,
           children: [
-            AmountChip(formatCurrency(plan.minAmount)),
-            AmountChip(formatCurrency((plan.minAmount + plan.maxAmount) / 2)),
-            AmountChip(formatCurrency(plan.maxAmount)),
+            _AmountChipButton(
+              label: formatCurrency(plan.minAmount),
+              onTap: () =>
+                  amountController.text = plan.minAmount.toStringAsFixed(0),
+            ),
+            _AmountChipButton(
+              label: formatCurrency((plan.minAmount + plan.maxAmount) / 2),
+              onTap: () => amountController.text =
+                  ((plan.minAmount + plan.maxAmount) / 2).toStringAsFixed(0),
+            ),
+            _AmountChipButton(
+              label: formatCurrency(plan.maxAmount),
+              onTap: () =>
+                  amountController.text = plan.maxAmount.toStringAsFixed(0),
+            ),
           ],
         ),
-        const SizedBox(height: 22),
-        Text(
-          'Upload Payment Proof',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
-        MGUploadBox(
-          fileName: proofFileName,
-          errorText: messageText?.contains('proof') == true
-              ? messageText
-              : null,
-          onTap: isSubmitting ? null : onSelectProof,
-        ),
-        if (messageText != null && messageText?.contains('proof') != true) ...[
+        if (errorText != null) ...[
           const SizedBox(height: 12),
           MGInlineMessage(
-            message: messageText!,
-            tone: success ? MGMessageTone.success : MGMessageTone.warning,
-            icon: success
-                ? Icons.check_circle_outline
-                : Icons.warning_amber_outlined,
+            message: errorText!,
+            tone: MGMessageTone.warning,
+            icon: Icons.warning_amber_outlined,
           ),
         ],
         const SizedBox(height: 28),
         MGGradientButton(
-          label: isSubmitting ? 'Submitting...' : 'Submit Investment',
-          onPressed: isSubmitting ? null : onSubmit,
+          label: 'Pay Now',
+          icon: Icons.arrow_forward,
+          onPressed: onProceed,
         ),
       ],
+    );
+  }
+}
+
+class _AmountChipButton extends StatelessWidget {
+  const _AmountChipButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AmountChip(label),
     );
   }
 }
