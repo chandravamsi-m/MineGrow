@@ -114,7 +114,11 @@ class MGMainNavigationShell extends StatelessWidget {
         location == AppRoutes.withdrawalHistory) {
       return 3;
     }
-    if (location == AppRoutes.profile || location == AppRoutes.notifications) {
+    if (location == AppRoutes.profile ||
+        location == AppRoutes.bankAccounts ||
+        location == AppRoutes.upiDetails ||
+        location == AppRoutes.notificationSettings ||
+        location == AppRoutes.notifications) {
       return 4;
     }
     return 0;

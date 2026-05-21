@@ -202,6 +202,20 @@ class ApiClient {
     return parser(_unwrapData(response.data));
   }
 
+  Future<T> putData<T>(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    required T Function(Object? json) parser,
+  }) async {
+    final response = await put<Object?>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+    );
+    return parser(_unwrapData(response.data));
+  }
+
   Object? _unwrapData(Object? body) {
     if (body case {
       'success': false,
