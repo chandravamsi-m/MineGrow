@@ -105,4 +105,45 @@ class ProfileRepository {
       },
     );
   }
+
+  Future<BankAccount> addBankAccount({
+    required String bankName,
+    required String accountHolder,
+    required String accountNumber,
+    required String ifscCode,
+  }) {
+    return _apiClient.postData<BankAccount>(
+      '/users/bank-accounts',
+      data: {
+        'account_type': 'bank',
+        'bank_name': bankName,
+        'account_holder': accountHolder,
+        'account_number': accountNumber,
+        'ifsc_code': ifscCode,
+      },
+      parser: BankAccount.fromJson,
+    );
+  }
+
+  Future<BankAccount> addUpiId({
+    required String upiId,
+    String? accountHolder,
+  }) {
+    return _apiClient.postData<BankAccount>(
+      '/users/bank-accounts',
+      data: {
+        'account_type': 'upi',
+        'upi_id': upiId,
+        'bank_name': 'UPI',
+        'account_number': upiId,
+        'ifsc_code': '',
+        'account_holder': ?accountHolder,
+      },
+      parser: BankAccount.fromJson,
+    );
+  }
+
+  Future<void> deleteAccount(int id) async {
+    await _apiClient.delete<Object?>('/users/bank-accounts/$id');
+  }
 }

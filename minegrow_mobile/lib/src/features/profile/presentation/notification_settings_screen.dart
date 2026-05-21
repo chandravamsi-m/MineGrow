@@ -5,6 +5,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../data/profile_repository.dart';
 
 class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -35,6 +36,14 @@ class _NotificationSettingsScreenState
 
   Future<void> _loadSettings() async {
     final storage = ref.read(localStorageProvider);
+
+    // Use profile notification preferences from the backend as the fallback
+    // when the device has no locally stored value (e.g., first launch).
+    final prefs = ref.read(profileProvider).maybeWhen(
+      data: (p) => p.notificationPreferences,
+      orElse: () => null,
+    );
+
     final values = await Future.wait<bool?>([
       storage.readBool(_pushKey),
       storage.readBool(_investmentKey),
@@ -44,10 +53,10 @@ class _NotificationSettingsScreenState
 
     if (!mounted) return;
     setState(() {
-      _pushEnabled = values[0] ?? true;
-      _investmentEnabled = values[1] ?? true;
-      _walletEnabled = values[2] ?? true;
-      _promoEnabled = values[3] ?? false;
+      _pushEnabled = values[0] ?? prefs?.push ?? true;
+      _investmentEnabled = values[1] ?? prefs?.investments ?? true;
+      _walletEnabled = values[2] ?? prefs?.wallet ?? true;
+      _promoEnabled = values[3] ?? prefs?.promotions ?? false;
       _isLoading = false;
     });
   }

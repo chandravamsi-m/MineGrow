@@ -13,6 +13,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../app_config/data/app_config_repository.dart';
 import '../../wallet/data/wallet_repository.dart';
 import '../data/investments_repository.dart';
 
@@ -35,12 +36,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void dispose() {
     _utrController.dispose();
     super.dispose();
-  }
-
-  String get _upiDeepLink {
-    final upiId = AppConfig.paymentUpiId;
-    final amount = widget.args.amount.toStringAsFixed(2);
-    return 'upi://pay?pa=$upiId&pn=MineGrow&am=$amount&cu=INR&tn=MineGrow+Investment';
   }
 
   Future<void> _selectProof() async {
@@ -131,7 +126,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Widget build(BuildContext context) {
     final plan = widget.args.plan;
     final amount = widget.args.amount;
-    final upiId = AppConfig.paymentUpiId;
+
+    // UPI ID is fetched from the backend; falls back to env-var if unavailable.
+    final configState = ref.watch(appConfigProvider);
+    final upiId = configState.maybeWhen(
+      data: (c) => c.paymentUpiId,
+      orElse: () => AppConfig.paymentUpiId,
+    );
+    final upiDeepLink =
+        'upi://pay?pa=$upiId&pn=MineGrow&am=${amount.toStringAsFixed(2)}'
+        '&cu=INR&tn=MineGrow+Investment';
 
     return MGScaffold(
       appBar: AppBar(
@@ -151,7 +155,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           Text('Scan & Pay', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           _QRPaymentCard(
-            upiDeepLink: _upiDeepLink,
+            upiDeepLink: upiDeepLink,
             upiId: upiId,
             amount: amount,
           ),

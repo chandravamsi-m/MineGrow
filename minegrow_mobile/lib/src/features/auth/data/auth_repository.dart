@@ -21,18 +21,30 @@ class AuthRepository {
   final ApiClient _apiClient;
   final LocalStorage _storage;
 
-  Future<void> sendOtp({
+  /// Sends an OTP and returns the resend cooldown in seconds (default 30).
+  /// The delay is stored in [AuthStorageKeys.otpResendDelay] so the OTP screen
+  /// can read it without relying on a hardcoded value.
+  Future<int> sendOtp({
     required String mobile,
     required String purpose,
   }) async {
     final String fullMobile = mobile.startsWith('+91') ? mobile : '+91$mobile';
-    await _apiClient.postData<void>(
+    final delay = await _apiClient.postData<int>(
       '/auth/send-otp',
       data: {'mobile': fullMobile, 'purpose': purpose},
-      parser: (_) {},
+      parser: (json) {
+        if (json is Map) {
+          final d = json['resend_delay'] ?? json['resendDelay'];
+          if (d is num) return d.toInt();
+        }
+        return 30;
+      },
     );
     await _storage.writeString(AuthStorageKeys.mobile, fullMobile);
     await _storage.writeString(AuthStorageKeys.otpPurpose, purpose);
+    await _storage.writeString(
+        AuthStorageKeys.otpResendDelay, delay.toString());
+    return delay;
   }
 
   Future<AuthSession> verifyOtp({
@@ -81,6 +93,13 @@ class AuthRepository {
 
   String readSavedOtpPurpose() {
     return _storage.readString(AuthStorageKeys.otpPurpose) ?? 'login';
+  }
+
+  /// Returns the resend cooldown last saved by [sendOtp], defaulting to 30 s.
+  Future<int> readSavedOtpResendDelayAsync() async {
+    final raw =
+        await _storage.readStringAsync(AuthStorageKeys.otpResendDelay);
+    return int.tryParse(raw ?? '') ?? 30;
   }
 
   Future<void> _saveSession(AuthSession session, String mobile) async {

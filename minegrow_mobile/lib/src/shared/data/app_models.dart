@@ -62,6 +62,17 @@ class InvestmentPlan {
 
   String get lockPeriod => '$lockDays Days Lock';
 
+  Color get planColor => _planColor(id);
+
+  static Color _planColor(int id) {
+    return switch (id) {
+      1 => const Color(0xFFF59E0B), // brandOrange — Starter
+      2 => const Color(0xFFC0C0C0), // silver
+      3 => const Color(0xFFFDBA2D), // brandGold — Gold
+      _ => const Color(0xFFFDBA2D),
+    };
+  }
+
   factory InvestmentPlan.fromJson(Object? json) {
     final map = json as Map<String, dynamic>;
     final id = _intValue(map['id']);
@@ -137,6 +148,7 @@ class InvestmentRecord {
   const InvestmentRecord({
     required this.id,
     required this.planId,
+    this.planName,
     required this.amount,
     required this.dailyRoiPct,
     required this.lockDays,
@@ -146,6 +158,10 @@ class InvestmentRecord {
 
   final int id;
   final int planId;
+  /// Plan name as returned by the API (e.g. "Gold Plan"). May be null if the
+  /// investments endpoint does not include plan details — fall back to the
+  /// plans list cross-reference in that case.
+  final String? planName;
   final num amount;
   final num dailyRoiPct;
   final int lockDays;
@@ -159,6 +175,7 @@ class InvestmentRecord {
     return InvestmentRecord(
       id: _intValue(map['id']),
       planId: _intValue(map['plan_id']),
+      planName: (map['plan_name'] ?? map['planName'])?.toString(),
       amount: _numValue(map['amount']),
       dailyRoiPct: _numValue(map['daily_roi_pct']),
       lockDays: _intValue(map['lock_days']),
@@ -271,6 +288,35 @@ class WithdrawalEligibility {
   }
 }
 
+/// Per-category notification preferences fetched from the user profile.
+/// Used as default values when the device has no locally stored preference.
+class NotificationPreferences {
+  const NotificationPreferences({
+    this.push = true,
+    this.investments = true,
+    this.wallet = true,
+    this.promotions = false,
+  });
+
+  final bool push;
+  final bool investments;
+  final bool wallet;
+  final bool promotions;
+
+  static const defaults = NotificationPreferences();
+
+  factory NotificationPreferences.fromJson(Object? json) {
+    if (json == null) return defaults;
+    final map = (json as Map?)?.cast<String, dynamic>() ?? {};
+    return NotificationPreferences(
+      push: map['push'] != false,
+      investments: map['investments'] != false,
+      wallet: map['wallet'] != false,
+      promotions: map['promotions'] == true,
+    );
+  }
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -280,6 +326,7 @@ class UserProfile {
     this.address,
     required this.status,
     required this.kycVerified,
+    this.notificationPreferences = NotificationPreferences.defaults,
   });
 
   final int id;
@@ -289,6 +336,7 @@ class UserProfile {
   final String? address;
   final String status;
   final bool kycVerified;
+  final NotificationPreferences notificationPreferences;
 
   factory UserProfile.fromJson(Object? json) {
     final map = json as Map<String, dynamic>;
@@ -300,6 +348,9 @@ class UserProfile {
       address: map['address']?.toString(),
       status: _stringValue(map['status'], fallback: 'active'),
       kycVerified: map['kyc_verified'] == true,
+      notificationPreferences: NotificationPreferences.fromJson(
+        map['notification_preferences'] ?? map['notificationPreferences'],
+      ),
     );
   }
 }

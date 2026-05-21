@@ -223,25 +223,24 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             runSpacing: 6,
             children: [
               _AmountChip(
-                label: 'Rs 1,000',
-                onTap: () =>
-                    setState(() => _amountController.text = '1000'),
+                label: '25%',
+                onTap: () => setState(() => _amountController.text =
+                    (balance * 0.25).round().toString()),
               ),
               _AmountChip(
-                label: 'Rs 5,000',
-                onTap: () =>
-                    setState(() => _amountController.text = '5000'),
+                label: '50%',
+                onTap: () => setState(() => _amountController.text =
+                    (balance * 0.50).round().toString()),
               ),
               _AmountChip(
-                label: 'Rs 10,000',
-                onTap: () =>
-                    setState(() => _amountController.text = '10000'),
+                label: '75%',
+                onTap: () => setState(() => _amountController.text =
+                    (balance * 0.75).round().toString()),
               ),
               _AmountChip(
                 label: 'All',
                 onTap: () => setState(
-                  () => _amountController.text =
-                      balance.toStringAsFixed(0),
+                  () => _amountController.text = balance.toStringAsFixed(0),
                 ),
               ),
             ],

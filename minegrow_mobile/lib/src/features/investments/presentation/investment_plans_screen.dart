@@ -79,11 +79,19 @@ class _InvestmentPlansScreenState extends ConsumerState<InvestmentPlansScreen>
                 _ActiveTab(
                   ownState: ownState,
                   investments: activeInvestments,
+                  plans: plansState.maybeWhen(
+                    data: (list) => list,
+                    orElse: () => const <InvestmentPlan>[],
+                  ),
                   onGoToPlans: () => _tabController.animateTo(0),
                 ),
                 _PendingTab(
                   ownState: ownState,
                   investments: nonActiveInvestments,
+                  plans: plansState.maybeWhen(
+                    data: (list) => list,
+                    orElse: () => const <InvestmentPlan>[],
+                  ),
                   onGoToPlans: () => _tabController.animateTo(0),
                 ),
               ],
@@ -273,11 +281,13 @@ class _ActiveTab extends StatelessWidget {
   const _ActiveTab({
     required this.ownState,
     required this.investments,
+    required this.plans,
     required this.onGoToPlans,
   });
 
   final AsyncValue<List<InvestmentRecord>> ownState;
   final List<InvestmentRecord> investments;
+  final List<InvestmentPlan> plans;
   final VoidCallback onGoToPlans;
 
   @override
@@ -354,7 +364,7 @@ class _ActiveTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           for (final inv in investments) ...[
-            _ActiveInvestmentCard(record: inv),
+            _ActiveInvestmentCard(record: inv, plans: plans),
             const SizedBox(height: 12),
           ],
         ],
@@ -369,11 +379,13 @@ class _PendingTab extends StatelessWidget {
   const _PendingTab({
     required this.ownState,
     required this.investments,
+    required this.plans,
     required this.onGoToPlans,
   });
 
   final AsyncValue<List<InvestmentRecord>> ownState;
   final List<InvestmentRecord> investments;
+  final List<InvestmentPlan> plans;
   final VoidCallback onGoToPlans;
 
   @override
@@ -426,7 +438,7 @@ class _PendingTab extends StatelessWidget {
             const SizedBox(height: 14),
           ],
           for (final inv in investments) ...[
-            _PendingInvestmentCard(record: inv),
+            _PendingInvestmentCard(record: inv, plans: plans),
             const SizedBox(height: 12),
           ],
           if (hasRejected) ...[
@@ -531,9 +543,10 @@ class _PlanCard extends StatelessWidget {
 // ── Active Investment Card ────────────────────────────────────────────────────
 
 class _ActiveInvestmentCard extends StatelessWidget {
-  const _ActiveInvestmentCard({required this.record});
+  const _ActiveInvestmentCard({required this.record, required this.plans});
 
   final InvestmentRecord record;
+  final List<InvestmentPlan> plans;
 
   @override
   Widget build(BuildContext context) {
@@ -544,9 +557,11 @@ class _ActiveInvestmentCard extends StatelessWidget {
     final progress = (elapsed / lockDays).clamp(0.0, 1.0);
     final daysRemaining = (record.lockDays - elapsed).clamp(0, record.lockDays);
     final dailyEarnings = record.amount * record.dailyRoiPct / 100;
-    final planName = _planName(record.planId);
-    final planIcon = _planIcon(record.planId);
-    final planColor = _planColor(record.planId, context);
+    final matchedPlan = _findPlanById(plans, record.planId);
+    final planName =
+        record.planName ?? matchedPlan?.name ?? _fallbackPlanName(record.planId);
+    final planIcon = matchedPlan?.icon ?? _fallbackPlanIcon(record.planId);
+    final planColor = matchedPlan?.planColor ?? _fallbackPlanColor(record.planId);
 
     return MGCard(
       gradient: context.tokens.principalGradient,
@@ -664,27 +679,6 @@ class _ActiveInvestmentCard extends StatelessWidget {
     );
   }
 
-  static String _planName(int planId) => switch (planId) {
-    1 => 'Starter Plan',
-    2 => 'Silver Plan',
-    3 => 'Gold Plan',
-    _ => 'Investment Plan',
-  };
-
-  static IconData _planIcon(int planId) => switch (planId) {
-    1 => Icons.landscape_outlined,
-    2 => Icons.account_balance_outlined,
-    3 => Icons.diamond_outlined,
-    _ => Icons.savings_outlined,
-  };
-
-  static Color _planColor(int planId, BuildContext context) => switch (planId) {
-    1 => context.tokens.brandOrange,
-    2 => const Color(0xFFC0C0C0),
-    3 => context.tokens.brandGold,
-    _ => context.tokens.brandGold,
-  };
-
   static String _formatDate(String raw) {
     try {
       final dt = DateTime.parse(raw).toLocal();
@@ -702,9 +696,10 @@ class _ActiveInvestmentCard extends StatelessWidget {
 // ── Pending Investment Card ───────────────────────────────────────────────────
 
 class _PendingInvestmentCard extends StatelessWidget {
-  const _PendingInvestmentCard({required this.record});
+  const _PendingInvestmentCard({required this.record, required this.plans});
 
   final InvestmentRecord record;
+  final List<InvestmentPlan> plans;
 
   @override
   Widget build(BuildContext context) {
@@ -740,7 +735,9 @@ class _PendingInvestmentCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 Text(
-                  _planName(record.planId),
+                  record.planName ??
+                      _findPlanById(plans, record.planId)?.name ??
+                      _fallbackPlanName(record.planId),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: context.tokens.textSecondary,
                   ),
@@ -759,13 +756,6 @@ class _PendingInvestmentCard extends StatelessWidget {
       ),
     );
   }
-
-  static String _planName(int planId) => switch (planId) {
-    1 => 'Starter Plan',
-    2 => 'Silver Plan',
-    3 => 'Gold Plan',
-    _ => 'Investment Plan',
-  };
 
   static MGStatus _toMGStatus(String status) => switch (status) {
     'approved' || 'active' => MGStatus.approved,
@@ -786,3 +776,36 @@ class _PendingInvestmentCard extends StatelessWidget {
     }
   }
 }
+
+// ── Shared plan-lookup helpers ────────────────────────────────────────────────
+// These replace the hardcoded per-class switch statements.  The primary path
+// looks up the actual InvestmentPlan loaded from the API; the _fallback*
+// variants are used only when the plans list hasn't loaded yet.
+
+InvestmentPlan? _findPlanById(List<InvestmentPlan> plans, int planId) {
+  for (final plan in plans) {
+    if (plan.id == planId) return plan;
+  }
+  return null;
+}
+
+String _fallbackPlanName(int planId) => switch (planId) {
+      1 => 'Starter Plan',
+      2 => 'Silver Plan',
+      3 => 'Gold Plan',
+      _ => 'Investment Plan',
+    };
+
+IconData _fallbackPlanIcon(int planId) => switch (planId) {
+      1 => Icons.landscape_outlined,
+      2 => Icons.account_balance_outlined,
+      3 => Icons.diamond_outlined,
+      _ => Icons.savings_outlined,
+    };
+
+Color _fallbackPlanColor(int planId) => switch (planId) {
+      1 => const Color(0xFFF59E0B), // brandOrange
+      2 => const Color(0xFFC0C0C0), // silver
+      3 => const Color(0xFFFDBA2D), // brandGold
+      _ => const Color(0xFFFDBA2D),
+    };
