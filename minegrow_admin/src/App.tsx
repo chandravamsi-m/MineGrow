@@ -7,12 +7,13 @@ import { DepositsQueue } from './components/DepositsQueue';
 import { WithdrawalsQueue } from './components/WithdrawalsQueue';
 import { PlansManager } from './components/PlansManager';
 import { LedgerViewer } from './components/LedgerViewer';
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowRight, Loader2, Eye, EyeOff, Menu } from 'lucide-react';
 
 
 const MainAppContent: React.FC = () => {
   const { admin, loading, login } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Login form states
   const [email, setEmail] = useState('');
@@ -233,9 +234,38 @@ const MainAppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pl-64 bg-slate-950 text-slate-100 flex flex-col">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="flex-1 p-8 md:p-10 max-w-7xl mx-auto w-full space-y-6">
+    <div className="min-h-screen lg:pl-64 bg-slate-950 text-slate-100 flex flex-col">
+      {/* Mobile Top Header */}
+      <header className="lg:hidden flex items-center justify-between p-4 bg-slate-950/80 border-b border-slate-800/80 sticky top-0 z-30 backdrop-blur-md">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-base text-white tracking-tight">MineGrow</span>
+        </div>
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/40 rounded-lg transition-colors cursor-pointer"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      </header>
+
+      {/* Sidebar Backdrop for Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+      <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full space-y-6">
         {renderTabContent()}
       </main>
     </div>

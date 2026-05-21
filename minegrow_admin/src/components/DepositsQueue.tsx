@@ -9,6 +9,7 @@ import {
   Loader2,
   IndianRupee,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 
 interface InvestmentDetail {
@@ -166,10 +167,10 @@ export const DepositsQueue: React.FC = () => {
         </button>
       </div>
 
-      {/* Grid splits */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+      {/* Layout Grid */}
+      <div className="w-full">
         {/* Main list */}
-        <div className="xl:col-span-2 glass-panel rounded-2xl overflow-hidden shadow-2xl">
+        <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -249,178 +250,205 @@ export const DepositsQueue: React.FC = () => {
           </div>
         </div>
 
-        {/* Verification overlay panel */}
-        <div className="xl:col-span-1 glass-panel rounded-2xl p-6 shadow-2xl h-full space-y-6">
-          <div className="flex items-center space-x-2 border-b border-slate-800 pb-4">
-            <FileText className="w-5 h-5 text-indigo-400" />
-            <h4 className="text-lg font-bold text-slate-100">Verification Desk</h4>
-          </div>
-
-          {!selectedItem ? (
-            <div className="text-center py-16 text-slate-500 text-sm">
-              Select a deposit record from the ledger list to display receipt snapshots, details, and trigger validation checks.
-            </div>
-          ) : (
-            <div className="space-y-6 animate-fadeIn">
-              {/* Profile Card Header */}
-              <div className="bg-slate-950/40 rounded-xl p-4 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-indigo-400 font-bold">DEPOSIT CONTRACT #{selectedItem.id}</span>
-                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-                    selectedItem.status === 'active'
-                      ? 'bg-emerald-600/10 text-emerald-400'
-                      : selectedItem.status === 'pending'
-                      ? 'bg-amber-600/10 text-amber-400 animate-pulse'
-                      : 'bg-rose-500/10 text-rose-400'
-                  }`}>
-                    {selectedItem.status}
-                  </span>
-                </div>
-                <h5 className="text-sm font-bold text-slate-200">{selectedItem.users?.full_name || 'System Member'}</h5>
-                <p className="text-xs text-slate-400">Mobile: {selectedItem.users?.mobile}</p>
-              </div>
-
-              {/* Transaction details block */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">UTRs Reference</span>
-                  <span className="text-xs font-mono font-bold text-slate-300 bg-slate-900/30 p-2 border border-slate-800/40 rounded-lg block">
-                    {selectedItem.utr_number}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Capital Value</span>
-                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/5 p-2 border border-emerald-500/10 rounded-lg block">
-                    ₹{selectedItem.amount.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Plan limits block */}
-              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800 text-xs space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Interest Percentage:</span>
-                  <span className="text-indigo-400 font-semibold">{selectedItem.daily_roi_pct}% / day</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Contract Lockup Time:</span>
-                  <span className="text-slate-300 font-semibold">{selectedItem.lock_days} days</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Created On:</span>
-                  <span className="text-slate-400">{new Date(selectedItem.created_at).toLocaleString()}</span>
-                </div>
-                {selectedItem.maturity_date && (
-                  <div className="flex justify-between border-t border-slate-800/60 pt-1.5 mt-1.5 font-semibold">
-                    <span className="text-slate-400">Contract Maturity:</span>
-                    <span className="text-emerald-400">{new Date(selectedItem.maturity_date).toLocaleDateString()}</span>
+        {/* Slide-over Verification drawer */}
+        {selectedItem && (
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-40 transition-opacity duration-300"
+              onClick={() => {
+                setSelectedItem(null);
+                setShowRejectForm(false);
+              }}
+            />
+            {/* Drawer */}
+            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-2xl flex flex-col animate-slideIn">
+              {/* Header */}
+              <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
+                    <FileText className="w-5 h-5" />
                   </div>
-                )}
+                  <div>
+                    <h4 className="text-lg font-bold text-slate-100">Verification Desk</h4>
+                    <span className="font-mono text-[10px] text-indigo-400 font-bold uppercase">Transaction ID: #{selectedItem.id}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedItem(null);
+                    setShowRejectForm(false);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800/40 rounded-lg cursor-pointer transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Payment Proof Snapshot */}
-              <div className="space-y-3">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Payment Screenshot Receipt</span>
-                
-                {selectedItem.payment_proof_url ? (
-                  <div className="space-y-4">
-                    <a
-                      href={`http://localhost:3000${selectedItem.payment_proof_url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative block rounded-xl overflow-hidden border border-slate-800 bg-slate-950/50 aspect-video flex items-center justify-center hover:border-indigo-500/30 transition-all duration-300 shadow-inner"
-                    >
-                      <img
-                        src={`http://localhost:3000${selectedItem.payment_proof_url}`}
-                        alt="Payment Receipt"
-                        className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-300 group-hover:opacity-85"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      <span className="absolute bottom-3 right-3 bg-slate-950/80 px-2.5 py-1 rounded text-[10px] font-semibold text-slate-300 group-hover:bg-indigo-600 transition-colors duration-300">
-                        View Receipt Fullscreen
+              {/* Body */}
+              <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                <div className="space-y-6 animate-fadeIn">
+                  {/* User Profile Card */}
+                  <div className="bg-slate-900/40 rounded-xl p-4 border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-indigo-400 font-bold">DEPOSIT DETAILS</span>
+                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded ${
+                        selectedItem.status === 'active'
+                          ? 'bg-emerald-600/10 text-emerald-400'
+                          : selectedItem.status === 'pending'
+                          ? 'bg-amber-600/10 text-amber-400 animate-pulse'
+                          : 'bg-rose-500/10 text-rose-400'
+                      }`}>
+                        {selectedItem.status}
                       </span>
-                    </a>
+                    </div>
+                    <h5 className="text-sm font-bold text-slate-200">{selectedItem.users?.full_name || 'System Member'}</h5>
+                    <p className="text-xs text-slate-400">Mobile: {selectedItem.users?.mobile}</p>
+                  </div>
 
-                    {/* Pending actions verify/reject */}
-                    {selectedItem.status === 'pending' && (
-                      <div className="space-y-2 pt-2 border-t border-slate-800/60">
-                        {!showRejectForm ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            <button
-                              onClick={() => approveInvestment(selectedItem.id)}
-                              disabled={actionLoading}
-                              className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              <span>Approve Payout</span>
-                            </button>
-                            
-                            <button
-                              onClick={() => setShowRejectForm(true)}
-                              className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              <span>Reject Payout</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="space-y-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/15 animate-fadeIn">
-                            <label className="text-[10px] font-bold text-rose-400 uppercase">Reason for Transaction Rejection</label>
-                            <textarea
-                              rows={3}
-                              placeholder="Specify reason (e.g. UTR matches an already approved transaction, blur payment image proof)..."
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500/40"
-                            />
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => rejectInvestment(selectedItem.id)}
-                                disabled={actionLoading}
-                                className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
-                              >
-                                Submit Rejection
-                              </button>
-                              <button
-                                onClick={() => setShowRejectForm(false)}
-                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                  {/* Transaction Details */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">UTRs Reference</span>
+                      <span className="text-xs font-mono font-bold text-slate-300 bg-slate-900/30 p-2.5 border border-slate-800/40 rounded-lg block select-all">
+                        {selectedItem.utr_number}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Capital Value</span>
+                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/5 p-2.5 border border-emerald-500/10 rounded-lg block">
+                        ₹{selectedItem.amount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Plan Information */}
+                  <div className="p-4 bg-slate-900/20 rounded-xl border border-slate-800 text-xs space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Interest Percentage:</span>
+                      <span className="text-indigo-400 font-semibold">{selectedItem.daily_roi_pct}% / day</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Contract Lockup Time:</span>
+                      <span className="text-slate-300 font-semibold">{selectedItem.lock_days} days</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 font-medium">Created On:</span>
+                      <span className="text-slate-400">{new Date(selectedItem.created_at).toLocaleString()}</span>
+                    </div>
+                    {selectedItem.maturity_date && (
+                      <div className="flex justify-between border-t border-slate-800/60 pt-2 mt-2 font-semibold">
+                        <span className="text-slate-400">Contract Maturity:</span>
+                        <span className="text-emerald-400">{new Date(selectedItem.maturity_date).toLocaleDateString()}</span>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500">
-                    No receipt screens loaded. Profile upload required.
+
+                  {/* Payment Proof Snapshot */}
+                  <div className="space-y-3">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Payment Screenshot Receipt</span>
+                    
+                    {selectedItem.payment_proof_url ? (
+                      <div className="space-y-4">
+                        <a
+                          href={`http://localhost:3000${selectedItem.payment_proof_url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative block rounded-xl overflow-hidden border border-slate-800 bg-slate-900/30 aspect-video flex items-center justify-center hover:border-indigo-500/30 transition-all duration-300 shadow-inner"
+                        >
+                          <img
+                            src={`http://localhost:3000${selectedItem.payment_proof_url}`}
+                            alt="Payment Receipt"
+                            className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-300 group-hover:opacity-85"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                          <span className="absolute bottom-3 right-3 bg-slate-950/80 px-2.5 py-1 rounded text-[10px] font-semibold text-slate-300 group-hover:bg-indigo-600 transition-colors duration-300">
+                            View Receipt Fullscreen
+                          </span>
+                        </a>
+
+                        {/* Pending Actions */}
+                        {selectedItem.status === 'pending' && (
+                          <div className="space-y-2 pt-2 border-t border-slate-800/60">
+                            {!showRejectForm ? (
+                              <div className="grid grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => approveInvestment(selectedItem.id)}
+                                  disabled={actionLoading}
+                                  className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Approve Deposit</span>
+                                </button>
+                                
+                                <button
+                                  onClick={() => setShowRejectForm(true)}
+                                  className="flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  <span>Reject Deposit</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/15 animate-fadeIn">
+                                <label className="text-[10px] font-bold text-rose-400 uppercase">Reason for Transaction Rejection</label>
+                                <textarea
+                                  rows={3}
+                                  placeholder="Specify reason (e.g. UTR matches an already approved transaction, blur payment image proof)..."
+                                  value={rejectReason}
+                                  onChange={(e) => setRejectReason(e.target.value)}
+                                  className="w-full bg-slate-950/80 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500/40"
+                                />
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => rejectInvestment(selectedItem.id)}
+                                    disabled={actionLoading}
+                                    className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
+                                  >
+                                    Submit Rejection
+                                  </button>
+                                  <button
+                                    onClick={() => setShowRejectForm(false)}
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors duration-300 cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500 bg-slate-900/10">
+                        No receipt screens loaded. Profile upload required.
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {selectedItem.status === 'active' && (
+                    <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 text-emerald-400 flex items-center space-x-2.5 text-xs font-semibold">
+                      <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                      <span>Approved contract generating daily ROI.</span>
+                    </div>
+                  )}
+
+                  {selectedItem.rejection_reason && (
+                    <div className="p-3 bg-rose-500/5 rounded-xl border border-rose-500/10 text-rose-400 space-y-1 text-xs">
+                      <div className="flex items-center space-x-2">
+                        <XCircle className="w-4 h-4 text-rose-500" />
+                        <span className="font-semibold">Rejection details</span>
+                      </div>
+                      <p className="opacity-90 leading-relaxed font-mono text-[10px] pl-6">{selectedItem.rejection_reason}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {selectedItem.status === 'active' && (
-                <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 text-emerald-400 flex items-center space-x-2.5 text-xs font-semibold">
-                  <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-                  <span>Approved contract generating daily ROI.</span>
-                </div>
-              )}
-
-              {selectedItem.rejection_reason && (
-                <div className="p-3 bg-rose-500/5 rounded-xl border border-rose-500/10 text-rose-400 space-y-1 text-xs">
-                  <div className="flex items-center space-x-2">
-                    <XCircle className="w-4 h-4 text-rose-500" />
-                    <span className="font-semibold">Rejection details</span>
-                  </div>
-                  <p className="opacity-90 leading-relaxed font-mono text-[10px] pl-6">{selectedItem.rejection_reason}</p>
-                </div>
-              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

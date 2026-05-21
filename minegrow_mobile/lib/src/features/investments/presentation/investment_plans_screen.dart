@@ -27,7 +27,7 @@ class InvestmentPlansScreen extends ConsumerWidget {
             // ── Your Investments section ──────────────────────────────────
             ownState.when(
               loading: () => const MGLoadingList(itemCount: 1),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (e, st) => const SizedBox.shrink(),
               data: (records) {
                 if (records.isEmpty) return const SizedBox.shrink();
                 return Column(
