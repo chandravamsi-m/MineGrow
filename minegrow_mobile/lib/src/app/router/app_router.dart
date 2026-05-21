@@ -14,7 +14,10 @@ import '../../features/investments/presentation/investment_plans_screen.dart';
 import '../../features/investments/presentation/payment_pending_screen.dart';
 import '../../features/investments/presentation/payment_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/profile/presentation/bank_accounts_screen.dart';
+import '../../features/profile/presentation/notification_settings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/profile/presentation/upi_details_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/wallet/presentation/wallet_screen.dart';
 import '../../features/withdrawal/presentation/withdrawal_screen.dart';
@@ -40,6 +43,9 @@ const _protectedRoutes = {
   AppRoutes.withdrawal,
   AppRoutes.withdrawalHistory,
   AppRoutes.profile,
+  AppRoutes.bankAccounts,
+  AppRoutes.upiDetails,
+  AppRoutes.notificationSettings,
   AppRoutes.notifications,
   AppRoutes.onboarding,
 };
@@ -158,6 +164,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.profile,
             name: 'profile',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.bankAccounts,
+            name: 'bank-accounts',
+            builder: (context, state) => const BankAccountsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.upiDetails,
+            name: 'upi-details',
+            builder: (context, state) => const UpiDetailsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.notificationSettings,
+            name: 'notification-settings',
+            builder: (context, state) => const NotificationSettingsScreen(),
           ),
           GoRoute(
             path: AppRoutes.notifications,

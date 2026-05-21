@@ -47,7 +47,7 @@ class MineGrowTokens extends ThemeExtension<MineGrowTokens> {
     borderMuted: Color(0xFF1E2431),
     textPrimary: Color(0xFFFFFFFF),
     textSecondary: Color(0xFFB7BECC),
-    textMuted: Color(0xFF7D8494),
+    textMuted: Color(0xFF8D96AA),
     brandGold: Color(0xFFFDBA2D),
     brandOrange: Color(0xFFF59E0B),
     brandPurple: Color(0xFF7C4DFF),

@@ -63,9 +63,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return MGScaffold(
       appBar: MGAppBar(
         title: 'Hello, $profileName',
-        action: IconButton(
-          icon: const Icon(Icons.notifications_none),
-          onPressed: () => context.go(AppRoutes.notifications),
+        action: Semantics(
+          label: 'Notifications',
+          button: true,
+          child: IconButton(
+            tooltip: 'Notifications',
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () => context.go(AppRoutes.notifications),
+          ),
         ),
       ),
       mainNavigationIndex: 0,
