@@ -12,6 +12,7 @@ import {
   UpdateProfileDto,
   AddBankAccountDto,
   RegisterDeviceTokenDto,
+  UpdateNotificationPreferencesDto,
 } from './dto/users.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
@@ -29,7 +30,7 @@ export class UsersService {
     const { data: user, error } = await supabase
       .from('users')
       .select(
-        'id, full_name, mobile, email, status, kyc_verified, address, created_at',
+        'id, full_name, mobile, email, status, kyc_verified, address, notification_preferences, created_at',
       )
       .eq('id', userId)
       .single();
@@ -37,7 +38,52 @@ export class UsersService {
     if (error || !user) {
       throw new NotFoundException('User profile not found');
     }
+
+    // Default values fallback
+    const defaultPrefs = { push: true, investments: true, wallet: true, promotions: false };
+    user.notification_preferences = {
+      ...defaultPrefs,
+      ...(user.notification_preferences || {}),
+    };
+
     return user;
+  }
+
+  async updateNotificationPreferences(userId: number, dto: UpdateNotificationPreferencesDto) {
+    const supabase = this.supabaseService.getClient();
+
+    // 1. Fetch current profile
+    const profile = await this.getProfile(userId);
+    const currentPrefs = profile.notification_preferences || {
+      push: true,
+      investments: true,
+      wallet: true,
+      promotions: false,
+    };
+
+    // 2. Merge changes
+    const updatedPrefs = {
+      ...currentPrefs,
+      ...dto,
+    };
+
+    // 3. Save to database
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        notification_preferences: updatedPrefs,
+        updated_at: getISTDateTimeString(),
+      })
+      .eq('id', userId)
+      .select('id, notification_preferences')
+      .single();
+
+    if (error || !data) {
+      this.logger.error('Failed to update notification preferences:', error);
+      throw new InternalServerErrorException('Error saving notification preferences');
+    }
+
+    return data;
   }
 
   async updateProfile(userId: number, dto: UpdateProfileDto) {

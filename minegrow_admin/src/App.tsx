@@ -9,6 +9,7 @@ import { DepositsQueue } from './components/DepositsQueue';
 import { WithdrawalsQueue } from './components/WithdrawalsQueue';
 import { PlansManager } from './components/PlansManager';
 import { LedgerViewer } from './components/LedgerViewer';
+import { Settings } from './components/Settings';
 import { Sparkles, Mail, Lock, ShieldAlert, ArrowRight, Eye, EyeOff, Menu } from 'lucide-react';
 
 
@@ -141,6 +142,8 @@ const MainAppContent: React.FC = () => {
         return <PlansManager />;
       case 'ledger':
         return <LedgerViewer />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Dashboard />;
     }

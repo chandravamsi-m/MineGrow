@@ -94,3 +94,21 @@ export class RegisterDeviceTokenDto {
   @IsIn(['android', 'ios'])
   platform: string;
 }
+
+export class UpdateNotificationPreferencesDto {
+  @IsOptional()
+  @IsBoolean()
+  push?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  investments?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  wallet?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  promotions?: boolean;
+}

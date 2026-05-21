@@ -33,6 +33,12 @@ interface UserDetail {
   kyc_document_url?: string | null;
   kyc_rejection_reason?: string | null;
   created_at: string;
+  notification_preferences?: {
+    push?: boolean;
+    investments?: boolean;
+    wallet?: boolean;
+    promotions?: boolean;
+  } | null;
 }
 
 export const UsersList: React.FC = () => {
@@ -630,6 +636,49 @@ export const UsersList: React.FC = () => {
                             <p className="opacity-90 leading-relaxed font-mono text-[10px] pl-6">{selectedUser.kyc_rejection_reason}</p>
                           </div>
                         )}
+
+                        {/* Notification Preferences */}
+                        <div className="space-y-3">
+                          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Notification Permissions</span>
+                          <div className="grid grid-cols-2 gap-3 bg-slate-900/20 p-4 rounded-xl border border-slate-800/60 text-xs animate-fadeIn">
+                            <div className="flex items-center space-x-2.5">
+                              <input
+                                type="checkbox"
+                                checked={!!selectedUser.notification_preferences?.push}
+                                readOnly
+                                className="w-4 h-4 rounded border-slate-800 text-indigo-500 bg-slate-950/60 focus:ring-0 focus:ring-offset-0 cursor-not-allowed"
+                              />
+                              <span className="text-slate-300">Push Notifications</span>
+                            </div>
+                            <div className="flex items-center space-x-2.5">
+                              <input
+                                type="checkbox"
+                                checked={!!selectedUser.notification_preferences?.investments}
+                                readOnly
+                                className="w-4 h-4 rounded border-slate-800 text-indigo-500 bg-slate-950/60 focus:ring-0 focus:ring-offset-0 cursor-not-allowed"
+                              />
+                              <span className="text-slate-300">Investment Alerts</span>
+                            </div>
+                            <div className="flex items-center space-x-2.5">
+                              <input
+                                type="checkbox"
+                                checked={!!selectedUser.notification_preferences?.wallet}
+                                readOnly
+                                className="w-4 h-4 rounded border-slate-800 text-indigo-500 bg-slate-950/60 focus:ring-0 focus:ring-offset-0 cursor-not-allowed"
+                              />
+                              <span className="text-slate-300">Wallet Transactions</span>
+                            </div>
+                            <div className="flex items-center space-x-2.5">
+                              <input
+                                type="checkbox"
+                                checked={!!selectedUser.notification_preferences?.promotions}
+                                readOnly
+                                className="w-4 h-4 rounded border-slate-800 text-indigo-500 bg-slate-950/60 focus:ring-0 focus:ring-offset-0 cursor-not-allowed"
+                              />
+                              <span className="text-slate-300">Promotions & Offers</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
 

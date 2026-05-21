@@ -18,6 +18,7 @@ import {
   OnboardStep1Dto,
 } from './dto/auth.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
+import { AppConfigService } from '../app-config/app-config.service';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly supabaseService: SupabaseClientService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly appConfigService: AppConfigService,
   ) {}
 
   /**
@@ -51,7 +53,14 @@ export class AuthService {
       );
     }
 
-    return { message: 'OTP dispatched successfully via Supabase' };
+    const resendDelayStr = await this.appConfigService.getVal('otp_resend_delay', '30');
+    const resendDelay = Number(resendDelayStr);
+
+    return {
+      message: 'OTP dispatched successfully via Supabase',
+      resend_delay: resendDelay,
+      resendDelay: resendDelay,
+    };
   }
 
   /**

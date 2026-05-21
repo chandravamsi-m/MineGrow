@@ -169,7 +169,7 @@ export class InvestmentsService {
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from('investments')
-      .select('*, users(full_name, mobile)');
+      .select('*, users(full_name, mobile), investment_plan(plan_name)');
 
     if (filters.status) {
       query = query.eq('status', filters.status);
@@ -194,14 +194,29 @@ export class InvestmentsService {
       );
     }
 
-    return investments;
+    return investments?.map((inv: any) => {
+      let planName = 'Starter Plan';
+      if (inv.investment_plan) {
+        planName = Array.isArray(inv.investment_plan)
+          ? inv.investment_plan[0]?.plan_name || 'Starter Plan'
+          : inv.investment_plan.plan_name || 'Starter Plan';
+      }
+      return {
+        ...inv,
+        plan_name: planName,
+        planName: planName,
+        plans: {
+          plan_name: planName,
+        },
+      };
+    }) || [];
   }
 
   async getPendingInvestments() {
     const supabase = this.supabaseService.getClient();
     const { data: investments, error } = await supabase
       .from('investments')
-      .select('*, users(full_name, mobile)')
+      .select('*, users(full_name, mobile), investment_plan(plan_name)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
@@ -209,7 +224,22 @@ export class InvestmentsService {
       throw new InternalServerErrorException('Error loading pending deposits');
     }
 
-    return investments;
+    return investments?.map((inv: any) => {
+      let planName = 'Starter Plan';
+      if (inv.investment_plan) {
+        planName = Array.isArray(inv.investment_plan)
+          ? inv.investment_plan[0]?.plan_name || 'Starter Plan'
+          : inv.investment_plan.plan_name || 'Starter Plan';
+      }
+      return {
+        ...inv,
+        plan_name: planName,
+        planName: planName,
+        plans: {
+          plan_name: planName,
+        },
+      };
+    }) || [];
   }
 
   /**
