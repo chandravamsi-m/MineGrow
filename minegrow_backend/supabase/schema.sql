@@ -13,9 +13,23 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT,
     status VARCHAR(20) DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'suspended', 'pending_kyc')),
     kyc_verified BOOLEAN DEFAULT false NOT NULL,
+    notification_preferences JSONB DEFAULT '{"push": true, "investments": true, "wallet": true, "promotions": false}'::jsonb NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- 1b. Create 'app_config' table
+CREATE TABLE IF NOT EXISTS app_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+INSERT INTO app_config (key, value) VALUES 
+  ('payment_upi_id', 'minegrow@upi'),
+  ('otp_resend_delay', '30')
+ON CONFLICT (key) DO NOTHING;
 
 -- 2. Create 'admins' table
 CREATE TABLE IF NOT EXISTS admins (
@@ -157,6 +171,7 @@ CREATE TABLE IF NOT EXISTS kyc_documents (
     status VARCHAR(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMP WITH TIME ZONE,
+    admin_notes TEXT,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
