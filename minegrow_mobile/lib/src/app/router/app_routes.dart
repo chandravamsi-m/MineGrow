@@ -13,5 +13,8 @@ abstract final class AppRoutes {
   static const withdrawal = '/withdraw';
   static const withdrawalHistory = '/history/withdrawals';
   static const profile = '/profile';
+  static const bankAccounts = '/profile/bank-accounts';
+  static const upiDetails = '/profile/upi-details';
+  static const notificationSettings = '/profile/notification-settings';
   static const notifications = '/notifications';
 }

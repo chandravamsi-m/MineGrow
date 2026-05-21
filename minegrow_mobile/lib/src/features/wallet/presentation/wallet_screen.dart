@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/data/app_models.dart';
@@ -165,6 +167,12 @@ class WalletScreen extends ConsumerWidget {
                       MGMiniLineChart(color: context.tokens.brandGold),
                     ],
                   ),
+                ),
+                const SizedBox(height: 14),
+                MGGradientButton(
+                  label: 'Withdraw ROI',
+                  icon: Icons.arrow_upward,
+                  onPressed: () => context.go(AppRoutes.withdrawal),
                 ),
                 const SizedBox(height: 14),
                 MGInlineMessage(

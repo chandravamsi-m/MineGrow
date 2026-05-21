@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
@@ -29,6 +30,7 @@ class RoiHistoryScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         child: Column(
           children: [
+            // ── Total ROI header card ─────────────────────────────────────
             MGCard(
               gradient: context.tokens.principalGradient,
               child: Row(
@@ -51,7 +53,8 @@ class RoiHistoryScreen extends ConsumerWidget {
                             );
                             return Text(
                               formatCurrency(total),
-                              style: Theme.of(context).textTheme.headlineSmall,
+                              style:
+                                  Theme.of(context).textTheme.headlineSmall,
                             );
                           },
                           orElse: () => Text(
@@ -62,21 +65,26 @@ class RoiHistoryScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(
-                      context.metrics.radiusSmall,
-                    ),
-                    child: Image.asset(
-                      AppAssets.historyScroll,
-                      width: 86,
-                      height: 66,
-                      fit: BoxFit.cover,
+                  // Decorative asset — excluded from semantics
+                  ExcludeSemantics(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(
+                        context.metrics.radiusSmall,
+                      ),
+                      child: Image.asset(
+                        AppAssets.historyScroll,
+                        width: 86,
+                        height: 66,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 14),
+
+            // ── History list ──────────────────────────────────────────────
             historyState.when(
               loading: () => const MGLoadingList(),
               error: (error, stackTrace) => MGFriendlyState(
@@ -111,45 +119,89 @@ class RoiHistoryScreen extends ConsumerWidget {
   }
 }
 
+// ── History Row ───────────────────────────────────────────────────────────────
+
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.item});
 
   final RoiHistoryItem item;
 
+  /// Formats "2026-05-21" → "21 May 2026".
+  /// Falls back to the raw string if parsing fails.
+  static String _formatDate(String raw) {
+    try {
+      final date = DateFormat('yyyy-MM-dd').parse(raw);
+      return DateFormat('d MMM yyyy').format(date);
+    } catch (_) {
+      // Might already be a formatted string or a full ISO datetime
+      try {
+        final dt = DateTime.parse(raw).toLocal();
+        return DateFormat('d MMM yyyy').format(dt);
+      } catch (_) {
+        return raw;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: MGCard(
-        padding: EdgeInsets.all(context.metrics.compactPadding),
-        child: Row(
-          children: [
-            const Icon(Icons.hourglass_empty, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.creditedDate,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  Text(
-                    'Investment ID : #INV${item.investmentId}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: context.tokens.textSecondary,
-                    ),
-                  ),
-                ],
+    final formattedDate = _formatDate(item.creditedDate);
+    final creditLabel = '+${formatCurrency(item.amount)}';
+
+    return Semantics(
+      label: 'ROI credit of $creditLabel on $formattedDate, '
+          'Investment #${item.investmentId}',
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: MGCard(
+          padding: EdgeInsets.all(context.metrics.compactPadding),
+          child: Row(
+            children: [
+              // Income icon — green to reinforce positive credit
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: context.tokens.success.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.trending_up_rounded,
+                  size: 18,
+                  color: context.tokens.success,
+                ),
               ),
-            ),
-            Text(
-              '+${formatCurrency(item.amount)}',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: context.tokens.success),
-            ),
-          ],
+              const SizedBox(width: 12),
+
+              // Date & Investment ID
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formattedDate,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    Text(
+                      'Investment #${item.investmentId}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: context.tokens.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Amount
+              Text(
+                creditLabel,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: context.tokens.success,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -34,7 +34,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   void initState() {
     super.initState();
     _loadSavedMobile();
-    _startResendTimer();
+    _loadDelayAndStartTimer();
   }
 
   Future<void> _loadSavedMobile() async {
@@ -42,9 +42,19 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     if (mounted) setState(() => _savedMobile = mobile);
   }
 
+  /// Reads the resend cooldown that was stored when the OTP was dispatched,
+  /// then starts the countdown. This avoids a hardcoded 30-second value.
+  Future<void> _loadDelayAndStartTimer() async {
+    final delay =
+        await ref.read(authRepositoryProvider).readSavedOtpResendDelayAsync();
+    if (!mounted) return;
+    _secondsRemaining = delay;
+    _startResendTimer();
+  }
+
   void _startResendTimer() {
     _resendTimer?.cancel();
-    _secondsRemaining = 30;
+    // _secondsRemaining is set by caller — do NOT reset to a hardcoded value.
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
@@ -74,9 +84,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     });
     try {
       final auth = ref.read(authRepositoryProvider);
-      await auth.sendOtp(mobile: mobile, purpose: auth.readSavedOtpPurpose());
+      final delay =
+          await auth.sendOtp(mobile: mobile, purpose: auth.readSavedOtpPurpose());
       if (mounted) {
         _otpController.clear();
+        _secondsRemaining = delay;
         _startResendTimer();
       }
     } on ApiException catch (error) {
