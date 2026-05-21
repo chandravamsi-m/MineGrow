@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS kyc_documents (
     status VARCHAR(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMP WITH TIME ZONE,
+    admin_notes TEXT,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

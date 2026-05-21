@@ -106,7 +106,7 @@ export class InvestmentsService {
     const supabase = this.supabaseService.getClient();
     const { data: investments, error } = await supabase
       .from('investments')
-      .select('*')
+      .select('*, investment_plan(plan_name)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -116,14 +116,26 @@ export class InvestmentsService {
       );
     }
 
-    return investments;
+    return investments?.map((inv: any) => {
+      let planName = 'Starter Plan';
+      if (inv.investment_plan) {
+        planName = Array.isArray(inv.investment_plan)
+          ? inv.investment_plan[0]?.plan_name || 'Starter Plan'
+          : inv.investment_plan.plan_name || 'Starter Plan';
+      }
+      return {
+        ...inv,
+        plan_name: planName,
+        planName: planName,
+      };
+    }) || [];
   }
 
   async getOwnInvestmentById(userId: number, id: number) {
     const supabase = this.supabaseService.getClient();
     const { data: investment, error } = await supabase
       .from('investments')
-      .select('*')
+      .select('*, investment_plan(plan_name)')
       .eq('id', id)
       .eq('user_id', userId)
       .maybeSingle();
@@ -134,7 +146,19 @@ export class InvestmentsService {
       );
     }
 
-    return investment;
+    let planName = 'Starter Plan';
+    const inv: any = investment;
+    if (inv.investment_plan) {
+      planName = Array.isArray(inv.investment_plan)
+        ? inv.investment_plan[0]?.plan_name || 'Starter Plan'
+        : inv.investment_plan.plan_name || 'Starter Plan';
+    }
+
+    return {
+      ...investment,
+      plan_name: planName,
+      planName: planName,
+    };
   }
 
   async getAllInvestments(filters: {
