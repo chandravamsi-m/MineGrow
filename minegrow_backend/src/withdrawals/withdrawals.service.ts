@@ -226,7 +226,12 @@ export class WithdrawalsService {
       );
     }
 
-    return withdrawals;
+    return (
+      withdrawals?.map((w) => ({
+        ...w,
+        status: w.status === 'requested' ? 'pending' : w.status,
+      })) || []
+    );
   }
 
   async getAllWithdrawals(filters: {
@@ -240,7 +245,9 @@ export class WithdrawalsService {
       .select('*, users(full_name, mobile)');
 
     if (filters.status) {
-      query = query.eq('status', filters.status);
+      const dbStatus =
+        filters.status === 'pending' ? 'requested' : filters.status;
+      query = query.eq('status', dbStatus);
     }
     if (filters.type) {
       query = query.eq('withdrawal_type', filters.type);
@@ -260,7 +267,12 @@ export class WithdrawalsService {
       );
     }
 
-    return withdrawals;
+    return (
+      withdrawals?.map((w) => ({
+        ...w,
+        status: w.status === 'requested' ? 'pending' : w.status,
+      })) || []
+    );
   }
 
   async getPendingWithdrawals() {
@@ -275,7 +287,12 @@ export class WithdrawalsService {
       throw new InternalServerErrorException('Error loading pending queue');
     }
 
-    return withdrawals;
+    return (
+      withdrawals?.map((w) => ({
+        ...w,
+        status: w.status === 'requested' ? 'pending' : w.status,
+      })) || []
+    );
   }
 
   /**

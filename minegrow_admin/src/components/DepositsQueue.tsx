@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useConfirm } from '../context/ConfirmContext';
+import { useToast } from '../context/ToastContext';
 import {
   FileText,
   CheckCircle,
   XCircle,
   AlertCircle,
   Eye,
-  Loader2,
   IndianRupee,
   ShieldCheck,
   X,
+  Loader2,
 } from 'lucide-react';
 
 interface InvestmentDetail {
@@ -38,15 +40,40 @@ export const DepositsQueue: React.FC = () => {
   const [investments, setInvestments] = useState<InvestmentDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
   
   // Selected investment for verification overlay
   const [selectedItem, setSelectedItem] = useState<InvestmentDetail | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [previewLoading, setPreviewLoading] = useState(false);
   
   // Status filter state
   const [statusFilter, setStatusFilter] = useState('pending');
+
+  useEffect(() => {
+    if (selectedItem?.payment_proof_url) {
+      setPreviewLoading(true);
+      setPreviewUrl('');
+      api.get<{ signedUrl: string }>(`admin/files/view?path=${encodeURIComponent(selectedItem.payment_proof_url)}&json=true`)
+        .then(res => {
+          if (res?.signedUrl) {
+            setPreviewUrl(res.signedUrl);
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching preview signed URL:', err);
+        })
+        .finally(() => {
+          setPreviewLoading(false);
+        });
+    } else {
+      setPreviewUrl('');
+    }
+  }, [selectedItem]);
 
   const fetchInvestments = async () => {
     try {
@@ -75,56 +102,67 @@ export const DepositsQueue: React.FC = () => {
   }, [statusFilter]);
 
   const approveInvestment = async (id: number) => {
-    if (!window.confirm('Are you sure you want to approve this deposit transaction? This will create an active maturity contract, generate a wallet ledger record, and notify the user.')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/investments/${id}/approve`);
-      if (response.success) {
-        alert('Deposit transaction approved and contract activated');
-        fetchInvestments();
-      } else {
-        alert(response.message || 'Approval processing failed');
+    confirm({
+      title: 'Approve Deposit Transaction',
+      message: 'Are you sure you want to approve this deposit transaction? This will create an active maturity contract, generate a wallet ledger record, and notify the user.',
+      confirmText: 'Approve Deposit',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/investments/${id}/approve`);
+          if (response.success) {
+            toast.success('Deposit transaction approved and contract activated');
+            fetchInvestments();
+            if (selectedItem?.id === id) {
+              setSelectedItem(null);
+            }
+          } else {
+            toast.error(response.message || 'Approval processing failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred approving deposit');
+        } finally {
+          setActionLoading(false);
+        }
       }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred approving deposit');
-    } finally {
-      setActionLoading(false);
-    }
+    });
   };
 
   const rejectInvestment = async (id: number) => {
     if (!rejectReason.trim()) {
-      alert('Please specify the reason for transaction rejection.');
+      toast.warning('Please specify the reason for transaction rejection.');
       return;
     }
     
     setActionLoading(true);
     try {
-      const response = await api.post<any>(`admin/investments/${id}/reject`, { reason: rejectReason });
+      const response = await api.post<any>(`admin/investments/${id}/reject`, { adminNote: rejectReason });
       if (response.success) {
-        alert('Deposit transaction marked as rejected');
+        toast.success('Deposit transaction marked as rejected');
         setShowRejectForm(false);
         setRejectReason('');
         fetchInvestments();
+        if (selectedItem?.id === id) {
+          setSelectedItem(null);
+        }
       } else {
-        alert(response.message || 'Rejection failed');
+        toast.error(response.message || 'Rejection failed');
       }
     } catch (e: any) {
-      alert(e.message || 'Error occurred rejecting deposit');
+      toast.error(e.message || 'Error occurred rejecting deposit');
     } finally {
       setActionLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn relative">
-      <div>
-        <h2 className="text-3xl font-extrabold text-white tracking-tight">Deposit Approvals</h2>
-        <p className="text-slate-400 text-sm mt-1">Verify payment screenshots, crosscheck transaction UTR codes, and approve capital contracts.</p>
-      </div>
+    <div className="relative">
+      <div className="space-y-6 animate-fadeIn">
+        <div>
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">Deposit Approvals</h2>
+          <p className="text-slate-400 text-sm mt-1">Verify payment screenshots, crosscheck transaction UTR codes, and approve capital contracts.</p>
+        </div>
 
       {error && (
         <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center space-x-3 text-sm">
@@ -184,14 +222,18 @@ export const DepositsQueue: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-500">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                        <span>Loading transactional ledgers...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                      <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
+                      <td className="p-4">
+                        <div className="h-4 bg-slate-800 rounded w-28 mb-1.5"></div>
+                        <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                      </td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-16"></div></td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                      <td className="p-4 pr-6 text-center"><div className="h-8 bg-slate-800 rounded-lg w-8 mx-auto"></div></td>
+                    </tr>
+                  ))
                 ) : investments.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-500">
@@ -249,20 +291,22 @@ export const DepositsQueue: React.FC = () => {
             </table>
           </div>
         </div>
+      </div>
+    </div>
 
-        {/* Slide-over Verification drawer */}
-        {selectedItem && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-40 transition-opacity duration-300"
-              onClick={() => {
-                setSelectedItem(null);
-                setShowRejectForm(false);
-              }}
-            />
-            {/* Drawer */}
-            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-2xl flex flex-col animate-slideIn">
+    {/* Slide-over Verification drawer */}
+    {selectedItem && (
+      <>
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-slate-950/70 z-40 animate-fadeIn"
+          onClick={() => {
+            setSelectedItem(null);
+            setShowRejectForm(false);
+          }}
+        />
+        {/* Drawer */}
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.5)] flex flex-col animate-slideIn">
               {/* Header */}
               <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -350,24 +394,35 @@ export const DepositsQueue: React.FC = () => {
                     
                     {selectedItem.payment_proof_url ? (
                       <div className="space-y-4">
-                        <a
-                          href={`http://localhost:3000${selectedItem.payment_proof_url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative block rounded-xl overflow-hidden border border-slate-800 bg-slate-900/30 aspect-video flex items-center justify-center hover:border-indigo-500/30 transition-all duration-300 shadow-inner"
-                        >
-                          <img
-                            src={`http://localhost:3000${selectedItem.payment_proof_url}`}
-                            alt="Payment Receipt"
-                            className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-all duration-300 group-hover:opacity-85"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                          <span className="absolute bottom-3 right-3 bg-slate-950/80 px-2.5 py-1 rounded text-[10px] font-semibold text-slate-300 group-hover:bg-indigo-600 transition-colors duration-300">
-                            View Receipt Fullscreen
-                          </span>
-                        </a>
+                        {previewLoading ? (
+                          <div className="flex flex-col items-center justify-center p-6 bg-slate-950/40 border border-slate-800 rounded-xl aspect-video text-slate-500 animate-pulse">
+                            <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-2" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wider">Securing View URL...</span>
+                          </div>
+                        ) : previewUrl ? (
+                          <a
+                            href={previewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group relative block rounded-xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video flex items-center justify-center hover:border-indigo-500/30 transition-all duration-300 shadow-inner"
+                          >
+                            <img
+                              src={previewUrl}
+                              alt="Payment Receipt"
+                              className="w-full h-full object-contain opacity-75 group-hover:scale-105 transition-all duration-300 group-hover:opacity-95"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <span className="absolute bottom-3 right-3 bg-slate-950/80 px-2.5 py-1 rounded text-[10px] font-semibold text-slate-300 group-hover:bg-indigo-600 transition-colors duration-300">
+                              View Receipt Fullscreen
+                            </span>
+                          </a>
+                        ) : (
+                          <div className="p-6 rounded-xl border border-dashed border-slate-800/80 text-center text-xs text-slate-500 bg-slate-900/10">
+                            Failed to generate view URL.
+                          </div>
+                        )}
 
                         {/* Pending Actions */}
                         {selectedItem.status === 'pending' && (
@@ -449,7 +504,6 @@ export const DepositsQueue: React.FC = () => {
             </div>
           </>
         )}
-      </div>
     </div>
   );
 };
