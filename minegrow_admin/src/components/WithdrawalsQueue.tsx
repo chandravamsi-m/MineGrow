@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useConfirm } from '../context/ConfirmContext';
+import { useToast } from '../context/ToastContext';
 
 import {
   FileText,
@@ -41,6 +42,7 @@ export const WithdrawalsQueue: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
   
   // Selected detail card
   const [selectedItem, setSelectedItem] = useState<WithdrawalDetail | null>(null);
@@ -113,7 +115,7 @@ export const WithdrawalsQueue: React.FC = () => {
     
     setActionLoading(true);
     try {
-      const response = await api.post<any>(`admin/withdrawals/${id}/reject`, { reason: rejectReason });
+      const response = await api.post<any>(`admin/withdrawals/${id}/reject`, { adminNote: rejectReason });
       if (response.success) {
         toast.success('Withdrawal request rejected and ledger funds returned to wallet balance');
         setShowRejectForm(false);
@@ -180,12 +182,13 @@ export const WithdrawalsQueue: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn relative">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-        <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Withdrawal Queue</h2>
-          <p className="text-slate-400 text-sm mt-1">Approve pending withdrawal requests, manage physical transfers, and complete settlements.</p>
-        </div>
+    <div className="relative">
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+          <div>
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">Withdrawal Queue</h2>
+            <p className="text-slate-400 text-sm mt-1">Approve pending withdrawal requests, manage physical transfers, and complete settlements.</p>
+          </div>
         <button
           onClick={triggerExportCsv}
           className="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-indigo-400 font-semibold rounded-xl text-xs hover:text-indigo-300 transition-all duration-300 shadow-md cursor-pointer"
@@ -338,20 +341,22 @@ export const WithdrawalsQueue: React.FC = () => {
             </table>
           </div>
         </div>
+      </div>
+    </div>
 
-        {/* Slide-over Settlement drawer */}
-        {selectedItem && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-40 transition-opacity duration-300"
-              onClick={() => {
-                setSelectedItem(null);
-                setShowRejectForm(false);
-              }}
-            />
-            {/* Drawer */}
-            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-2xl flex flex-col animate-slideIn">
+    {/* Slide-over Settlement drawer */}
+    {selectedItem && (
+      <>
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-slate-950/70 z-40 animate-fadeIn"
+          onClick={() => {
+            setSelectedItem(null);
+            setShowRejectForm(false);
+          }}
+        />
+        {/* Drawer */}
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.5)] flex flex-col animate-slideIn">
               {/* Header */}
               <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -554,7 +559,6 @@ export const WithdrawalsQueue: React.FC = () => {
             </div>
           </>
         )}
-      </div>
     </div>
   );
 };
