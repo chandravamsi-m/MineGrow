@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useConfirm } from '../context/ConfirmContext';
+
 import {
   FileText,
   Check,
@@ -7,7 +9,6 @@ import {
   AlertCircle,
   Clock,
   Eye,
-  Loader2,
   IndianRupee,
   Building,
   QrCode,
@@ -39,6 +40,7 @@ export const WithdrawalsQueue: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   
   // Selected detail card
   const [selectedItem, setSelectedItem] = useState<WithdrawalDetail | null>(null);
@@ -76,29 +78,36 @@ export const WithdrawalsQueue: React.FC = () => {
   }, [statusFilter]);
 
   const approveRequest = async (id: number) => {
-    if (!window.confirm('Are you sure you want to approve this withdrawal request? This transitions the transaction to APPROVED (Pending physical bank dispatch/UPI wire transfer).')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/withdrawals/${id}/approve`);
-      if (response.success) {
-        alert('Withdrawal request approved');
-        fetchWithdrawals();
-      } else {
-        alert(response.message || 'Approval action failed');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred approving withdrawal');
-    } finally {
-      setActionLoading(false);
-    }
+    confirm({
+      title: 'Approve Withdrawal Request',
+      message: 'Are you sure you want to approve this withdrawal request? This transitions the transaction to APPROVED (Pending physical bank dispatch/UPI wire transfer).',
+      confirmText: 'Approve Withdrawal',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/withdrawals/${id}/approve`);
+          if (response.success) {
+            toast.success('Withdrawal request approved');
+            fetchWithdrawals();
+            if (selectedItem?.id === id) {
+              setSelectedItem(null);
+            }
+          } else {
+            toast.error(response.message || 'Approval action failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred approving withdrawal');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const rejectRequest = async (id: number) => {
     if (!rejectReason.trim()) {
-      alert('Please specify the reason for transaction rejection.');
+      toast.warning('Please specify the reason for transaction rejection.');
       return;
     }
     
@@ -106,39 +115,49 @@ export const WithdrawalsQueue: React.FC = () => {
     try {
       const response = await api.post<any>(`admin/withdrawals/${id}/reject`, { reason: rejectReason });
       if (response.success) {
-        alert('Withdrawal request rejected and ledger funds returned to wallet balance');
+        toast.success('Withdrawal request rejected and ledger funds returned to wallet balance');
         setShowRejectForm(false);
         setRejectReason('');
         fetchWithdrawals();
+        if (selectedItem?.id === id) {
+          setSelectedItem(null);
+        }
       } else {
-        alert(response.message || 'Rejection action failed');
+        toast.error(response.message || 'Rejection action failed');
       }
     } catch (e: any) {
-      alert(e.message || 'Error occurred rejecting withdrawal');
+      toast.error(e.message || 'Error occurred rejecting withdrawal');
     } finally {
       setActionLoading(false);
     }
   };
 
   const completeRequest = async (id: number) => {
-    if (!window.confirm('Are you sure you want to mark this withdrawal as physically COMPLETED? This confirms the cash transfer has been successfully settled with the client bank/UPI and completes the system agreement.')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/withdrawals/${id}/complete`);
-      if (response.success) {
-        alert('Withdrawal transaction marked completed successfully!');
-        fetchWithdrawals();
-      } else {
-        alert(response.message || 'Completion update failed');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred completing withdrawal');
-    } finally {
-      setActionLoading(false);
-    }
+    confirm({
+      title: 'Complete Withdrawal',
+      message: 'Are you sure you want to mark this withdrawal as physically COMPLETED? This confirms the cash transfer has been successfully settled with the client bank/UPI and completes the system agreement.',
+      confirmText: 'Complete Withdrawal',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/withdrawals/${id}/complete`);
+          if (response.success) {
+            toast.success('Withdrawal transaction marked completed successfully!');
+            fetchWithdrawals();
+            if (selectedItem?.id === id) {
+              setSelectedItem(null);
+            }
+          } else {
+            toast.error(response.message || 'Completion update failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred completing withdrawal');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const triggerExportCsv = async () => {
@@ -154,8 +173,9 @@ export const WithdrawalsQueue: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success('Withdrawals list exported to CSV successfully');
     } catch (e: any) {
-      alert(e.message || 'Error occurred exporting CSV ledger file');
+      toast.error(e.message || 'Error occurred exporting CSV ledger file');
     }
   };
 
@@ -243,14 +263,18 @@ export const WithdrawalsQueue: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-500">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                        <span>Loading settlement ledgers...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                      <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
+                      <td className="p-4">
+                        <div className="h-4 bg-slate-800 rounded w-28 mb-1.5"></div>
+                        <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                      </td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-16"></div></td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-12"></div></td>
+                      <td className="p-4 pr-6 text-center"><div className="h-8 bg-slate-800 rounded-lg w-8 mx-auto"></div></td>
+                    </tr>
+                  ))
                 ) : withdrawals.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-500">

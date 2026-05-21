@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
-  Loader2,
   Calendar,
 } from 'lucide-react';
 
@@ -93,14 +92,22 @@ export const LedgerViewer: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-sm">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                      <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                      <span>Retrieving audit books...</span>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                    <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
+                    <td className="p-4"><div className="h-4 bg-slate-800 rounded w-20"></div></td>
+                    <td className="p-4">
+                      <div className="h-4 bg-slate-800 rounded w-24 mb-1.5"></div>
+                      <div className="h-3 bg-slate-800/60 rounded w-16"></div>
+                    </td>
+                    <td className="p-4">
+                      <div className="h-4 bg-slate-800 rounded w-48 mb-1"></div>
+                      <div className="h-3 bg-slate-800/60 rounded w-32"></div>
+                    </td>
+                    <td className="p-4"><div className="h-5 bg-slate-800 rounded w-16"></div></td>
+                    <td className="p-4 pr-6 text-right"><div className="h-4 bg-slate-800 rounded w-16 ml-auto"></div></td>
+                  </tr>
+                ))
               ) : entries.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-12 text-center text-slate-500">

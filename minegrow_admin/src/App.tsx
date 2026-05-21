@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { UsersList } from './components/UsersList';
@@ -7,11 +9,11 @@ import { DepositsQueue } from './components/DepositsQueue';
 import { WithdrawalsQueue } from './components/WithdrawalsQueue';
 import { PlansManager } from './components/PlansManager';
 import { LedgerViewer } from './components/LedgerViewer';
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowRight, Loader2, Eye, EyeOff, Menu } from 'lucide-react';
+import { Sparkles, Mail, Lock, ShieldAlert, ArrowRight, Eye, EyeOff, Menu } from 'lucide-react';
 
 
 const MainAppContent: React.FC = () => {
-  const { admin, loading, login } = useAuth();
+  const { admin, login } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
@@ -21,10 +23,6 @@ const MainAppContent: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  // Seeding states
-  const [seedStatus, setSeedStatus] = useState<{ success: boolean; message: string } | null>(null);
-  const [seedingLoading, setSeedingLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,60 +38,6 @@ const MainAppContent: React.FC = () => {
       setLoginLoading(false);
     }
   };
-
-  const handleSeedAdmin = async () => {
-    if (!window.confirm('Do you want to seed the default system super admin? This will trigger the auth/admin/seed endpoint using the default bootstrap security key.')) {
-      return;
-    }
-
-    setSeedingLoading(true);
-    setSeedStatus(null);
-    try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/admin/seed', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-seed-secret': 'admin-bootstrap-secret-999',
-        },
-        body: JSON.stringify({
-          email: 'admin@minegrow.com',
-          password: 'adminpassword123',
-        }),
-      });
-
-      const payload = await response.json();
-      if (response.ok && payload.success) {
-        setSeedStatus({
-          success: true,
-          message: 'Super Admin seeded! Login with: admin@minegrow.com / adminpassword123',
-        });
-        setEmail('admin@minegrow.com');
-        setPassword('adminpassword123');
-      } else {
-        const errorMsg = payload?.error?.message || payload?.message || 'Seeding rejected (Admin may already exist)';
-        setSeedStatus({
-          success: false,
-          message: errorMsg,
-        });
-      }
-    } catch (err: any) {
-      setSeedStatus({
-        success: false,
-        message: err.message || 'Server connection failed',
-      });
-    } finally {
-      setSeedingLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-slate-100">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
-        <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">Loading Session Cache...</span>
-      </div>
-    );
-  }
 
   // Not logged in: Show premium glassmorphic login card
   if (!admin) {
@@ -177,37 +121,6 @@ const MainAppContent: React.FC = () => {
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
           </form>
-
-          {/* Quick-Seed Block */}
-          <div className="border-t border-slate-800/80 pt-6 space-y-4">
-            <div className="flex flex-col text-center space-y-1 text-[11px] text-slate-500">
-              <span className="font-semibold text-slate-400">First Time Setup Seeding</span>
-              <span>Need to bootstrap the DB super admin credentials?</span>
-            </div>
-
-            <button
-              onClick={handleSeedAdmin}
-              disabled={seedingLoading}
-              className="w-full flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-dashed border-indigo-500/30 hover:border-indigo-500/60 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-400 text-[10px] font-bold tracking-wider uppercase transition-all duration-300 cursor-pointer"
-            >
-              <span>{seedingLoading ? 'Generating Admin Account...' : 'Bootstrap First Super Admin'}</span>
-            </button>
-
-            {seedStatus && (
-              <div className={`p-3 rounded-xl flex items-start space-x-2 border text-[10px] leading-relaxed ${
-                seedStatus.success
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-              }`}>
-                {seedStatus.success ? (
-                  <CheckCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                )}
-                <span>{seedStatus.message}</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -275,7 +188,11 @@ const MainAppContent: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <MainAppContent />
+      <ToastProvider>
+        <ConfirmProvider>
+          <MainAppContent />
+        </ConfirmProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }
