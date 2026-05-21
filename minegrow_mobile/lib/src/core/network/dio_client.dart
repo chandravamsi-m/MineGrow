@@ -111,6 +111,7 @@ abstract final class AuthStorageKeys {
   static const refreshToken = 'auth.refreshToken';
   static const mobile = 'auth.mobile';
   static const otpPurpose = 'auth.otpPurpose';
+  static const otpResendDelay = 'auth.otpResendDelay';
 }
 
 class ApiClient {
