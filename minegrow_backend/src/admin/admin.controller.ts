@@ -10,20 +10,38 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UpdateUserStatusDto, KycReviewDto } from './dto/admin.dto';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly uploadsService: UploadsService,
+  ) {}
+
+  @Get('files/view')
+  async viewFile(
+    @Query('path') path: string,
+    @Query('json') json: string,
+    @Res() res: Response,
+  ) {
+    const signedUrl = await this.uploadsService.getSignedUrl(path);
+    if (json === 'true') {
+      return res.json({ signedUrl });
+    }
+    return res.redirect(302, signedUrl);
+  }
 
   @Get('users')
   async getUsers(

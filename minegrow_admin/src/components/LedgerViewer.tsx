@@ -32,7 +32,7 @@ export const LedgerViewer: React.FC = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const limit = 20;
+  const limit = 5;
 
   const fetchLedger = async () => {
     try {
@@ -42,8 +42,8 @@ export const LedgerViewer: React.FC = () => {
       const response = await api.get<any>(`admin/reports/ledger?page=${page}&limit=${limit}`);
       if (response.success && response.data) {
         // Backend returns: { data: ledger[], pagination: { page, limit, total, totalPages } }
-        const ledgerData = response.data.data || [];
-        const paginationMeta = response.data.pagination || {};
+        const ledgerData = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        const paginationMeta = response.pagination || response.data.pagination || {};
         setEntries(ledgerData);
         setTotalCount(paginationMeta.total || 0);
       } else {
@@ -93,17 +93,11 @@ export const LedgerViewer: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60 text-sm">
               {loading ? (
                 Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                  <tr key={idx} className="animate-pulse border-b border-slate-800/40 h-16 align-middle">
                     <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
                     <td className="p-4"><div className="h-4 bg-slate-800 rounded w-20"></div></td>
-                    <td className="p-4">
-                      <div className="h-4 bg-slate-800 rounded w-24 mb-1.5"></div>
-                      <div className="h-3 bg-slate-800/60 rounded w-16"></div>
-                    </td>
-                    <td className="p-4">
-                      <div className="h-4 bg-slate-800 rounded w-48 mb-1"></div>
-                      <div className="h-3 bg-slate-800/60 rounded w-32"></div>
-                    </td>
+                    <td className="p-4"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                    <td className="p-4"><div className="h-4 bg-slate-800 rounded w-48"></div></td>
                     <td className="p-4"><div className="h-5 bg-slate-800 rounded w-16"></div></td>
                     <td className="p-4 pr-6 text-right"><div className="h-4 bg-slate-800 rounded w-16 ml-auto"></div></td>
                   </tr>
@@ -119,7 +113,7 @@ export const LedgerViewer: React.FC = () => {
                   const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
                   
                   return (
-                    <tr key={entry.id} className="hover:bg-slate-900/30 transition-colors duration-250">
+                    <tr key={entry.id} className="hover:bg-slate-900/30 transition-colors duration-250 h-16 align-middle">
                       <td className="p-4 pl-6 font-mono text-xs text-indigo-400 font-semibold">#{entry.id}</td>
                       <td className="p-4 text-slate-400 text-xs whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
@@ -131,15 +125,9 @@ export const LedgerViewer: React.FC = () => {
                         <div className="font-semibold text-slate-200">
                           {entry.users?.full_name || 'System Auto-Engine'}
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
-                          Client: #{entry.user_id}
-                        </div>
                       </td>
                       <td className="p-4">
                         <div className="text-slate-300 text-xs leading-normal">{entry.description}</div>
-                        {entry.reference_id && (
-                          <span className="text-[10px] text-indigo-400 font-medium">Reference Ref: #{entry.reference_id}</span>
-                        )}
                       </td>
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${

@@ -90,7 +90,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
         <div className="fixed inset-0 z-999 flex items-center justify-center px-4">
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 bg-slate-950/85 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
+            className="fixed inset-0 bg-slate-950/85 transition-opacity duration-300 animate-fadeIn"
             onClick={handleClose}
           />
           

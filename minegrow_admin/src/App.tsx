@@ -167,7 +167,7 @@ const MainAppContent: React.FC = () => {
       {/* Sidebar Backdrop for Mobile */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/75 z-40 lg:hidden transition-opacity duration-300 animate-fadeIn"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}

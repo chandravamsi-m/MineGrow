@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Sliders,
   Check,
@@ -28,6 +29,7 @@ export const PlansManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const confirm = useConfirm();
   
   // Selected plan for inline updates editing
   const [editingPlan, setEditingPlan] = useState<InvestmentPlan | null>(null);
