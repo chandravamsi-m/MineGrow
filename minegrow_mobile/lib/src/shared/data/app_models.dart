@@ -334,3 +334,93 @@ class AuthSession {
     );
   }
 }
+
+class BankAccount {
+  const BankAccount({
+    required this.id,
+    required this.accountType,
+    required this.bankName,
+    required this.accountNumber,
+    required this.ifscCode,
+    this.accountHolder,
+    this.upiId,
+    this.isPrimary = false,
+  });
+
+  final int id;
+  final String accountType;
+  final String bankName;
+  final String accountNumber;
+  final String ifscCode;
+  final String? accountHolder;
+  final String? upiId;
+  final bool isPrimary;
+
+  bool get isUpi => accountType == 'upi' || (upiId?.isNotEmpty ?? false);
+  bool get isBank => !isUpi;
+
+  String get maskedNumber {
+    if (accountNumber.length <= 4) return accountNumber;
+    return '•••• ${accountNumber.substring(accountNumber.length - 4)}';
+  }
+
+  factory BankAccount.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return BankAccount(
+      id: _intValue(map['id']),
+      accountType: _stringValue(
+        map['account_type'] ?? map['accountType'],
+        fallback: 'bank',
+      ),
+      bankName: _stringValue(
+        map['bank_name'] ?? map['bankName'],
+        fallback: 'Bank',
+      ),
+      accountNumber: _stringValue(
+        map['account_number'] ?? map['accountNumber'],
+      ),
+      ifscCode: _stringValue(map['ifsc_code'] ?? map['ifscCode']),
+      accountHolder: (map['account_holder'] ?? map['accountHolder'])
+          ?.toString(),
+      upiId: (map['upi_id'] ?? map['upiId'])?.toString(),
+      isPrimary:
+          map['is_primary'] == true ||
+          map['isPrimary'] == true ||
+          map['is_default'] == true ||
+          map['isDefault'] == true,
+    );
+  }
+}
+
+class ApiNotification {
+  const ApiNotification({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.type,
+    required this.createdAt,
+    required this.isRead,
+  });
+
+  final int id;
+  final String title;
+  final String message;
+  final String type;
+  final String createdAt;
+  final bool isRead;
+
+  factory ApiNotification.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return ApiNotification(
+      id: _intValue(map['id']),
+      title: _stringValue(map['title']),
+      message: _stringValue(map['message'] ?? map['body']),
+      type: _stringValue(
+        map['type'] ?? map['notification_type'],
+        fallback: 'general',
+      ),
+      createdAt: _stringValue(map['created_at'] ?? map['createdAt']),
+      isRead: map['is_read'] == true || map['isRead'] == true,
+    );
+  }
+}

@@ -1,10 +1,10 @@
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../app/router/app_routes.dart';
@@ -62,14 +62,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final utr = _utrController.text.trim();
 
     if (utr.isEmpty) {
-      setState(() =>
-          _errorText = 'Enter the UTR / transaction ID from your payment app.');
+      setState(
+        () => _errorText =
+            'Enter the UTR / transaction ID from your payment app.',
+      );
       return;
     }
 
     if (_proofFile == null) {
       setState(
-          () => _errorText = 'Upload a screenshot of your payment to continue.');
+        () => _errorText = 'Upload a screenshot of your payment to continue.',
+      );
       return;
     }
 
@@ -90,12 +93,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         final path = _proofFile!.path;
         if (path == null || path.isEmpty) {
           throw const ApiException(
-              message: 'Could not locate proof file path.');
+            message: 'Could not locate proof file path.',
+          );
         }
         proof = await MultipartFile.fromFile(path, filename: _proofFile!.name);
       }
 
-      await ref.read(investmentsRepositoryProvider).createInvestment(
+      await ref
+          .read(investmentsRepositoryProvider)
+          .createInvestment(
             planId: widget.args.plan.id,
             amount: widget.args.amount,
             utrNumber: utr,
@@ -113,7 +119,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     } catch (_) {
       if (mounted) {
         setState(
-            () => _errorText = 'Could not submit payment. Please try again.');
+          () => _errorText = 'Could not submit payment. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -130,8 +137,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              context.go(AppRoutes.investmentDetails, extra: plan),
+          onPressed: () => context.go(AppRoutes.investmentDetails, extra: plan),
         ),
         title: const Text('Complete Payment'),
       ),
@@ -142,10 +148,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         children: [
           _OrderSummaryCard(plan: plan, amount: amount),
           const SizedBox(height: 24),
-          Text(
-            'Scan & Pay',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('Scan & Pay', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           _QRPaymentCard(
             upiDeepLink: _upiDeepLink,
@@ -191,9 +194,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             child: Text(
               'Payment is verified by our team within 24 hours',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: context.tokens.textMuted,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: context.tokens.textMuted),
             ),
           ),
         ],
@@ -234,14 +237,13 @@ class _OrderSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(plan.name,
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(plan.name, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 3),
                 Text(
                   '${plan.dailyRoi} daily  ·  ${plan.lockPeriod}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: context.tokens.textSecondary,
-                      ),
+                    color: context.tokens.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -252,14 +254,14 @@ class _OrderSummaryCard extends StatelessWidget {
               Text(
                 formatCurrency(amount),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: context.tokens.brandGold,
-                    ),
+                  color: context.tokens.brandGold,
+                ),
               ),
               Text(
                 'to pay',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: context.tokens.textMuted,
-                    ),
+                  color: context.tokens.textMuted,
+                ),
               ),
             ],
           ),
@@ -305,8 +307,8 @@ class _QRPaymentCard extends StatelessWidget {
             'Scan with PhonePe, GPay, Paytm or any UPI app',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: context.tokens.textSecondary,
-                ),
+              color: context.tokens.textSecondary,
+            ),
           ),
           const SizedBox(height: 14),
           _UpiIdRow(upiId: upiId),
@@ -348,9 +350,9 @@ class _UpiIdRow extends StatelessWidget {
           Expanded(
             child: Text(
               upiId,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           GestureDetector(
@@ -375,9 +377,9 @@ class _UpiIdRow extends StatelessWidget {
                 Text(
                   'Copy',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: context.tokens.brandGold,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: context.tokens.brandGold,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),

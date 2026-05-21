@@ -16,7 +16,7 @@ final profileProvider = AsyncNotifierProvider<ProfileNotifier, UserProfile>(
   ProfileNotifier.new,
 );
 
-final bankAccountsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) {
+final bankAccountsProvider = FutureProvider<List<BankAccount>>((ref) {
   return ref.watch(profileRepositoryProvider).getBankAccounts();
 });
 
@@ -78,12 +78,31 @@ class ProfileRepository {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getBankAccounts() {
-    return _apiClient.getData<List<Map<String, dynamic>>>(
+  Future<List<BankAccount>> getBankAccounts() {
+    return _apiClient.getData<List<BankAccount>>(
       '/users/bank-accounts',
       parser: (json) => (json as List)
-          .map((item) => Map<String, dynamic>.from(item as Map))
+          .map((item) => BankAccount.fromJson(item))
           .toList(growable: false),
+    );
+  }
+
+  Future<UserProfile> updateProfile({
+    required String fullName,
+    required String email,
+    required String address,
+  }) {
+    return _apiClient.putData<UserProfile>(
+      '/users/profile',
+      data: {
+        'fullName': fullName,
+        'email': email,
+        'address': address,
+      },
+      parser: (json) {
+        final map = json as Map<String, dynamic>;
+        return UserProfile.fromJson(map['user'] ?? map);
+      },
     );
   }
 }
