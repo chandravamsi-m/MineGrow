@@ -104,21 +104,45 @@ export const Dashboard: React.FC = () => {
           <div className="h-10 bg-slate-900 rounded-lg w-48 hidden md:block"></div>
         </div>
 
-        {/* Stats Grid skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((_, idx) => (
-            <div key={idx} className="h-32 bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6 space-y-4">
-              <div className="flex justify-between items-start">
-                <div className="h-4 bg-slate-800 rounded w-24"></div>
-                <div className="h-8 bg-slate-800 rounded-lg w-8"></div>
+        {/* Stats Grid skeleton - 4 items matching flex layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6 flex items-center space-x-4">
+              <div className="p-3 bg-slate-800 rounded-xl w-12 h-12 flex-shrink-0 animate-pulse"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-slate-800 rounded w-24"></div>
+                <div className="h-6 bg-slate-800 rounded w-16 animate-pulse"></div>
+                <div className="h-2.5 bg-slate-800/60 rounded w-14"></div>
               </div>
-              <div className="h-8 bg-slate-800 rounded w-16 animate-pulse"></div>
             </div>
           ))}
         </div>
 
-        {/* ROI manual panel skeleton */}
-        <div className="h-48 bg-slate-900/40 border border-slate-900/60 rounded-2xl p-6"></div>
+        {/* Action panel & Cron controllers skeleton */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Core Trigger Center Skeleton */}
+          <div className="lg:col-span-2 bg-slate-900/30 border border-slate-900/50 p-6 rounded-2xl space-y-6">
+            <div className="h-6 bg-slate-800 rounded w-1/3 border-b border-slate-800 pb-4"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-slate-900/60 rounded w-full"></div>
+              <div className="h-4 bg-slate-900/60 rounded w-5/6"></div>
+            </div>
+            <div className="h-24 bg-slate-950/60 rounded-xl border border-slate-900/80 p-4"></div>
+            <div className="h-12 bg-slate-900 rounded-xl w-48 animate-pulse"></div>
+          </div>
+          
+          {/* Tasks Queue Skeleton */}
+          <div className="bg-slate-900/30 border border-slate-900/50 p-6 rounded-2xl flex flex-col justify-between h-full space-y-6">
+            <div className="space-y-6">
+              <div className="h-6 bg-slate-800 rounded w-1/2 border-b border-slate-800 pb-4"></div>
+              <div className="space-y-4">
+                <div className="h-12 bg-slate-905 border border-slate-800/80 rounded-xl"></div>
+                <div className="h-12 bg-slate-905 border border-slate-800/80 rounded-xl"></div>
+              </div>
+            </div>
+            <div className="h-8 bg-slate-900/30 rounded w-full mt-8"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -145,7 +169,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* User Card */}
         <div className="glass-card p-6 rounded-2xl flex items-center space-x-4">
           <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
@@ -196,7 +220,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Action panel & Cron controllers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Core Trigger Center */}
         <div className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-6">
           <div className="flex items-center space-x-3 border-b border-slate-800 pb-4">
