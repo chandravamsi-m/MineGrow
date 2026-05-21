@@ -23,6 +23,7 @@ import {
   UpdateProfileDto,
   AddBankAccountDto,
   RegisterDeviceTokenDto,
+  UpdateNotificationPreferencesDto,
 } from './dto/users.dto';
 
 @Controller('users')
@@ -99,5 +100,13 @@ export class UsersController {
     @Body() dto: RegisterDeviceTokenDto,
   ) {
     return this.usersService.registerDeviceToken(user.id, dto);
+  }
+
+  @Patch('notification-preferences')
+  async updateNotificationPreferences(
+    @CurrentUser() user: any,
+    @Body() dto: UpdateNotificationPreferencesDto,
+  ) {
+    return this.usersService.updateNotificationPreferences(user.id, dto);
   }
 }

@@ -11,6 +11,7 @@ import {
   LogOut,
   Sparkles,
   X,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -43,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
     { id: 'withdrawals', name: 'Withdrawal Flow', icon: ArrowUpCircle },
     { id: 'plans', name: 'Investment Plans', icon: Sliders },
     { id: 'ledger', name: 'System Ledger', icon: BookOpen },
+    { id: 'settings', name: 'Settings', icon: Settings },
   ];
 
   return (

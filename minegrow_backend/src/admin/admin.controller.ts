@@ -109,4 +109,20 @@ export class AdminController {
     const limitNum = limit ? parseInt(limit, 10) : 50;
     return this.adminService.getSystemLedger(pageNum, limitNum);
   }
+
+  @Get('app-config')
+  async getAppConfigs() {
+    return this.adminService.getAppConfigs();
+  }
+
+  @Patch('app-config/:key')
+  async updateAppConfig(
+    @CurrentUser() admin: any,
+    @Param('key') key: string,
+    @Body('value') value: string,
+    @Req() req: any,
+  ) {
+    const ip = req.ip || req.socket.remoteAddress;
+    return this.adminService.updateAppConfig(admin.id, key, value, ip);
+  }
 }
