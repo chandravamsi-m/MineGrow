@@ -152,6 +152,18 @@ export class UsersService {
   async addBankAccount(userId: number, dto: AddBankAccountDto) {
     const supabase = this.supabaseService.getClient();
 
+    const accountType = dto.accountType || dto.account_type;
+    const bankName = dto.bankName || dto.bank_name;
+    const accountNumber = dto.accountNumber || dto.account_number;
+    const ifscCode = dto.ifscCode || dto.ifsc_code;
+    const accountHolder = dto.accountHolder || dto.account_holder;
+    const upiId = dto.upiId || dto.upi_id;
+    const isDefaultInput = dto.isDefault !== undefined ? dto.isDefault : dto.is_default;
+
+    if (!accountType || !['bank', 'upi'].includes(accountType)) {
+      throw new BadRequestException('Account type must be "bank" or "upi"');
+    }
+
     // 1. If this is the first account, force it to be default
     const { data: existingAccounts } = await supabase
       .from('bank_accounts')
@@ -159,7 +171,7 @@ export class UsersService {
       .eq('user_id', userId);
 
     const isFirstAccount = !existingAccounts || existingAccounts.length === 0;
-    const makeDefault = isFirstAccount || dto.isDefault === true;
+    const makeDefault = isFirstAccount || isDefaultInput === true;
 
     // 2. If default, reset other accounts first
     if (makeDefault) {
@@ -174,12 +186,12 @@ export class UsersService {
       .from('bank_accounts')
       .insert({
         user_id: userId,
-        account_type: dto.accountType,
-        bank_name: dto.bankName || null,
-        account_number: dto.accountNumber || null,
-        ifsc_code: dto.ifscCode || null,
-        account_holder: dto.accountHolder || null,
-        upi_id: dto.upiId || null,
+        account_type: accountType,
+        bank_name: bankName || null,
+        account_number: accountNumber || null,
+        ifsc_code: ifscCode || null,
+        account_holder: accountHolder || null,
+        upi_id: upiId || null,
         is_default: makeDefault,
       })
       .select('*')
