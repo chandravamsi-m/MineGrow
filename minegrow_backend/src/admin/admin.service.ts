@@ -8,6 +8,7 @@ import {
 import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
 import { FcmService } from '../notifications/fcm.service';
+import { AppConfigService } from '../app-config/app-config.service';
 import { UpdateUserStatusDto, KycReviewDto } from './dto/admin.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
@@ -19,6 +20,7 @@ export class AdminService {
     private readonly supabaseService: SupabaseClientService,
     private readonly auditService: AuditService,
     private readonly fcmService: FcmService,
+    private readonly appConfigService: AppConfigService,
   ) {}
 
   async getUsers(search?: string, status?: string) {
@@ -53,7 +55,7 @@ export class AdminService {
     // 1. Profile
     const { data: profile } = await supabase
       .from('users')
-      .select('id, full_name, mobile, email, status, kyc_verified, created_at')
+      .select('id, full_name, mobile, email, status, kyc_verified, address, notification_preferences, created_at')
       .eq('id', userId)
       .single();
     if (!profile) {
@@ -448,5 +450,49 @@ export class AdminService {
         totalPages,
       },
     };
+  }
+
+  async getAppConfigs() {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('key, value, updated_at')
+      .order('key');
+
+    if (error) {
+      if (error.code === 'PGRST205') {
+        this.logger.warn("Table 'app_config' not found in database. Serving default system settings. Please execute migration SQL.");
+        return [
+          { key: 'payment_upi_id', value: 'minegrow@upi', updated_at: new Date().toISOString() },
+          { key: 'otp_resend_delay', value: '30', updated_at: new Date().toISOString() }
+        ];
+      }
+      this.logger.error('Failed to fetch app configs:', error);
+      throw new InternalServerErrorException('Error loading system configs');
+    }
+    return data;
+  }
+
+  async updateAppConfig(
+    adminId: number,
+    key: string,
+    value: string,
+    ipAddress?: string,
+  ) {
+    // 1. Update DB & invalidate cache via AppConfigService
+    await this.appConfigService.updateVal(key, value);
+
+    // 2. Audit log
+    await this.auditService.log(
+      'admin',
+      adminId,
+      'UPDATE_CONFIG',
+      null,
+      null,
+      { key, value },
+      ipAddress,
+    );
+
+    return { success: true };
   }
 }

@@ -20,6 +20,7 @@ import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RoiCronModule } from './cron/roi-cron.module';
 import { AdminModule } from './admin/admin.module';
+import { AppConfigModule } from './app-config/app-config.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AdminModule } from './admin/admin.module';
     WithdrawalsModule,
     RoiCronModule,
     AdminModule,
+    AppConfigModule,
   ],
   controllers: [AppController],
   // CRIT-2: Register ThrottlerGuard globally so all routes are rate-limited by default
