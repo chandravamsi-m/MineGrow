@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/dio_client.dart';
@@ -7,7 +8,10 @@ import '../../../core/storage/local_storage.dart';
 import '../../../shared/data/app_models.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
-  return ProfileRepository(ref.watch(apiClientProvider));
+  return ProfileRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(dioProvider),
+  );
 });
 
 // Cache-first profile: serves stored data instantly on cold start,
@@ -60,6 +64,7 @@ class ProfileNotifier extends AsyncNotifier<UserProfile> {
         if (profile.address != null) 'address': profile.address,
         'status': profile.status,
         'kyc_verified': profile.kycVerified,
+        'notification_preferences': profile.notificationPreferences.toJson(),
       }),
     );
     return profile;
@@ -67,9 +72,10 @@ class ProfileNotifier extends AsyncNotifier<UserProfile> {
 }
 
 class ProfileRepository {
-  const ProfileRepository(this._apiClient);
+  const ProfileRepository(this._apiClient, this._dio);
 
   final ApiClient _apiClient;
+  final Dio _dio;
 
   Future<UserProfile> getProfile() {
     return _apiClient.getData<UserProfile>(
@@ -94,11 +100,7 @@ class ProfileRepository {
   }) {
     return _apiClient.putData<UserProfile>(
       '/users/profile',
-      data: {
-        'fullName': fullName,
-        'email': email,
-        'address': address,
-      },
+      data: {'fullName': fullName, 'email': email, 'address': address},
       parser: (json) {
         final map = json as Map<String, dynamic>;
         return UserProfile.fromJson(map['user'] ?? map);
@@ -125,10 +127,7 @@ class ProfileRepository {
     );
   }
 
-  Future<BankAccount> addUpiId({
-    required String upiId,
-    String? accountHolder,
-  }) {
+  Future<BankAccount> addUpiId({required String upiId, String? accountHolder}) {
     return _apiClient.postData<BankAccount>(
       '/users/bank-accounts',
       data: {
@@ -143,7 +142,93 @@ class ProfileRepository {
     );
   }
 
+  Future<List<KycDocument>> getKycDocuments() {
+    return _apiClient.getData<List<KycDocument>>(
+      '/users/kyc',
+      parser: parseKycDocuments,
+    );
+  }
+
+  Future<KycDocument?> uploadKycDocument({
+    required String docType,
+    required MultipartFile file,
+  }) {
+    return _apiClient.postData<KycDocument?>(
+      '/users/kyc',
+      data: buildKycUploadFormData(docType: docType, file: file),
+      options: Options(contentType: 'multipart/form-data'),
+      parser: parseKycUploadResponse,
+    );
+  }
+
+  Future<NotificationPreferences> updateNotificationPreferences(
+    NotificationPreferences preferences,
+  ) async {
+    final response = await _dio.patch<Object?>(
+      '/users/notification-preferences',
+      data: notificationPreferencesPayload(preferences),
+    );
+    final data = _unwrapData(response.data);
+    return NotificationPreferences.fromJson(
+      data is Map<String, dynamic>
+          ? data['notification_preferences'] ??
+                data['notificationPreferences'] ??
+                data['preferences'] ??
+                data
+          : data,
+    );
+  }
+
   Future<void> deleteAccount(int id) async {
     await _apiClient.delete<Object?>('/users/bank-accounts/$id');
   }
+}
+
+final kycDocumentsProvider = FutureProvider<List<KycDocument>>((ref) {
+  return ref.watch(profileRepositoryProvider).getKycDocuments();
+});
+
+FormData buildKycUploadFormData({
+  required String docType,
+  required MultipartFile file,
+}) {
+  return FormData.fromMap({'docType': docType, 'file': file});
+}
+
+Map<String, bool> notificationPreferencesPayload(
+  NotificationPreferences preferences,
+) {
+  return preferences.toJson();
+}
+
+List<KycDocument> parseKycDocuments(Object? json) {
+  final documents = switch (json) {
+    final List list => list,
+    final Map map =>
+      (map['documents'] ?? map['kycDocuments'] ?? map['kyc'] ?? const [])
+          as List,
+    _ => const [],
+  };
+  return documents
+      .map((item) => KycDocument.fromJson(item))
+      .toList(growable: false);
+}
+
+KycDocument? parseKycUploadResponse(Object? json) {
+  if (json == null) return null;
+  if (json is Map<String, dynamic>) {
+    final document =
+        json['document'] ?? json['kycDocument'] ?? json['kyc'] ?? json;
+    if (document is Map<String, dynamic>) {
+      return KycDocument.fromJson(document);
+    }
+  }
+  return null;
+}
+
+Object? _unwrapData(Object? body) {
+  if (body case {'data': final Object? data}) {
+    return data;
+  }
+  return body;
 }

@@ -9,7 +9,11 @@ import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
 import { FcmService } from '../notifications/fcm.service';
 import { AppConfigService } from '../app-config/app-config.service';
-import { UpdateUserStatusDto, KycReviewDto } from './dto/admin.dto';
+import {
+  UpdateUserStatusDto,
+  KycReviewDto,
+  AdjustWalletDto,
+} from './dto/admin.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
 @Injectable()
@@ -255,6 +259,50 @@ export class AdminService {
     );
 
     return { message: 'KYC submission rejected successfully' };
+  }
+
+  async adjustUserWallet(
+    adminId: number,
+    userId: number,
+    dto: AdjustWalletDto,
+    ipAddress?: string,
+  ) {
+    const amount = Number(dto.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Wallet adjustment amount must be positive');
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase.rpc('adjust_user_wallet', {
+      p_admin_id: adminId,
+      p_user_id: userId,
+      p_wallet_type: dto.walletType,
+      p_direction: dto.direction,
+      p_amount: amount,
+      p_reason: dto.reason,
+      p_ip_address: ipAddress || null,
+    });
+
+    if (error) {
+      const message = error.message || 'Error adjusting wallet balance';
+      this.logger.error('Failed to adjust wallet balance:', error);
+
+      if (message.toLowerCase().includes('wallet not found')) {
+        throw new NotFoundException('User wallet not found');
+      }
+
+      if (
+        message.toLowerCase().includes('insufficient') ||
+        message.toLowerCase().includes('invalid') ||
+        message.toLowerCase().includes('positive')
+      ) {
+        throw new BadRequestException(message);
+      }
+
+      throw new InternalServerErrorException('Error adjusting wallet balance');
+    }
+
+    return data;
   }
 
   /**

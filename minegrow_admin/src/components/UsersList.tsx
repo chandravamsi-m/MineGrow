@@ -41,6 +41,46 @@ interface UserDetail {
   } | null;
 }
 
+type WalletType = 'roi' | 'principal';
+type WalletDirection = 'credit' | 'debit';
+
+interface WalletAdjustmentForm {
+  walletType: WalletType;
+  direction: WalletDirection;
+  amount: string;
+  reason: string;
+}
+
+const getKycDocumentPath = (kycDoc: any): string | null => {
+  return kycDoc?.doc_url || kycDoc?.document_url || null;
+};
+
+const hasNumericValue = (value: unknown): boolean => {
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+};
+
+const toMoneyValue = (value: unknown): number => {
+  return hasNumericValue(value) ? Number(value) : 0;
+};
+
+const sumAmounts = (items: any[] | undefined, statusFilter?: string[]): number => {
+  if (!items) return 0;
+
+  return items.reduce((total, item) => {
+    const status = String(item?.status || '').toLowerCase();
+    if (statusFilter && !statusFilter.includes(status)) return total;
+
+    return total + toMoneyValue(item?.amount);
+  }, 0);
+};
+
+const emptyWalletAdjustment: WalletAdjustmentForm = {
+  walletType: 'roi',
+  direction: 'credit',
+  amount: '',
+  reason: '',
+};
+
 export const UsersList: React.FC = () => {
   const [users, setUsers] = useState<UserDetail[]>([]);
   const [search, setSearch] = useState('');
@@ -62,6 +102,8 @@ export const UsersList: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [walletAdjustment, setWalletAdjustment] = useState<WalletAdjustmentForm>(emptyWalletAdjustment);
+  const [walletAdjusting, setWalletAdjusting] = useState(false);
 
   useEffect(() => {
     if (selectedUser?.kyc_document_url) {
@@ -121,6 +163,7 @@ export const UsersList: React.FC = () => {
     setDrawerTab('profile');
     setShowRejectForm(false);
     setRejectReason('');
+    setWalletAdjustment(emptyWalletAdjustment);
     try {
       const response = await api.get<any>(`admin/users/${userId}`);
       if (response.success && response.data) {
@@ -131,7 +174,7 @@ export const UsersList: React.FC = () => {
         const latestKyc = kycDocs && kycDocs.length > 0 ? kycDocs[0] : null;
         setSelectedUser({
           ...profile,
-          kyc_document_url: latestKyc?.document_url || null,
+          kyc_document_url: getKycDocumentPath(latestKyc),
           kyc_rejection_reason: latestKyc?.admin_notes || null,
         });
       } else {
@@ -226,6 +269,71 @@ export const UsersList: React.FC = () => {
       setActionLoading(false);
     }
   };
+
+  const submitWalletAdjustment = () => {
+    if (!selectedUser) return;
+
+    const amount = Number(walletAdjustment.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.warning('Enter a positive adjustment amount.');
+      return;
+    }
+
+    if (!walletAdjustment.reason.trim()) {
+      toast.warning('Add a reason for the wallet adjustment.');
+      return;
+    }
+
+    const walletLabel = walletAdjustment.walletType === 'roi' ? 'ROI profit' : 'principal';
+    const directionLabel = walletAdjustment.direction === 'credit' ? 'credit' : 'debit';
+
+    confirm({
+      title: `Confirm Wallet ${directionLabel}`,
+      message: `Apply a ${directionLabel} of Rs. ${amount.toLocaleString()} to ${selectedUser.full_name}'s ${walletLabel} wallet? This action will be written to the wallet ledger and audit log.`,
+      confirmText: `Apply ${directionLabel}`,
+      type: walletAdjustment.direction === 'debit' ? 'danger' : 'success',
+      onConfirm: async () => {
+        setWalletAdjusting(true);
+        try {
+          const response = await api.patch<any>(`admin/users/${selectedUser.id}/wallet`, {
+            walletType: walletAdjustment.walletType,
+            direction: walletAdjustment.direction,
+            amount,
+            reason: walletAdjustment.reason.trim(),
+          });
+
+          if (response.success) {
+            const updatedWallet = response.data?.wallet;
+            if (updatedWallet) {
+              setUserDetailPayload((current: any) =>
+                current ? { ...current, wallet: updatedWallet } : current,
+              );
+            }
+            setWalletAdjustment(emptyWalletAdjustment);
+            toast.success('Wallet adjustment recorded successfully');
+          } else {
+            toast.error(response.message || 'Wallet adjustment failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Network error adjusting wallet');
+        } finally {
+          setWalletAdjusting(false);
+        }
+      },
+    });
+  };
+
+  const wallet = userDetailPayload?.wallet;
+  const hasBackendDepositedTotal = hasNumericValue(wallet?.total_deposited);
+  const hasBackendWithdrawnTotal = hasNumericValue(wallet?.total_withdrawn);
+  const displayedDepositedTotal = hasBackendDepositedTotal
+    ? toMoneyValue(wallet?.total_deposited)
+    : sumAmounts(userDetailPayload?.investments);
+  const displayedWithdrawnTotal = hasBackendWithdrawnTotal
+    ? toMoneyValue(wallet?.total_withdrawn)
+    : sumAmounts(userDetailPayload?.withdrawals, ['completed']);
+  const depositedTotalLabel = hasBackendDepositedTotal ? 'total deposited' : 'total invested';
+  const withdrawnTotalLabel = hasBackendWithdrawnTotal ? 'total settled' : 'settled payouts';
 
   return (
     <div className="relative">
@@ -790,19 +898,116 @@ export const UsersList: React.FC = () => {
                             </div>
                           </div>
                           <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">total deposited</span>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">{depositedTotalLabel}</span>
                             <div className="flex items-baseline text-slate-300 font-bold text-lg">
                               <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500 self-center" />
-                              <span>{(userDetailPayload?.wallet?.total_deposited || 0).toLocaleString()}</span>
+                              <span>{displayedDepositedTotal.toLocaleString()}</span>
                             </div>
                           </div>
                           <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">total settled</span>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block mb-1">{withdrawnTotalLabel}</span>
                             <div className="flex items-baseline text-slate-300 font-bold text-lg">
                               <IndianRupee className="w-4 h-4 mr-0.5 text-slate-500 self-center" />
-                              <span>{(userDetailPayload?.wallet?.total_withdrawn || 0).toLocaleString()}</span>
+                              <span>{displayedWithdrawnTotal.toLocaleString()}</span>
                             </div>
                           </div>
+                        </div>
+
+                        {/* Wallet Adjustment */}
+                        <div className="space-y-3 p-4 rounded-xl border border-slate-800 bg-slate-900/30">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold block">Admin wallet adjustment</span>
+                              <p className="text-xs text-slate-400 mt-1">Credits and debits are recorded in the wallet ledger.</p>
+                            </div>
+                            <Wallet className="w-4 h-4 text-indigo-400 shrink-0" />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="space-y-1.5">
+                              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Wallet</span>
+                              <select
+                                value={walletAdjustment.walletType}
+                                onChange={(e) =>
+                                  setWalletAdjustment((current) => ({
+                                    ...current,
+                                    walletType: e.target.value as WalletType,
+                                  }))
+                                }
+                                className="w-full bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                                disabled={walletAdjusting}
+                              >
+                                <option value="roi">ROI profit</option>
+                                <option value="principal">Principal</option>
+                              </select>
+                            </label>
+
+                            <label className="space-y-1.5">
+                              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Direction</span>
+                              <select
+                                value={walletAdjustment.direction}
+                                onChange={(e) =>
+                                  setWalletAdjustment((current) => ({
+                                    ...current,
+                                    direction: e.target.value as WalletDirection,
+                                  }))
+                                }
+                                className="w-full bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                                disabled={walletAdjusting}
+                              >
+                                <option value="credit">Credit</option>
+                                <option value="debit">Debit</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          <label className="space-y-1.5 block">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Amount</span>
+                            <div className="relative">
+                              <IndianRupee className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={walletAdjustment.amount}
+                                onChange={(e) =>
+                                  setWalletAdjustment((current) => ({
+                                    ...current,
+                                    amount: e.target.value,
+                                  }))
+                                }
+                                className="w-full bg-slate-950/60 border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                                placeholder="0.00"
+                                disabled={walletAdjusting}
+                              />
+                            </div>
+                          </label>
+
+                          <label className="space-y-1.5 block">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Reason</span>
+                            <textarea
+                              value={walletAdjustment.reason}
+                              onChange={(e) =>
+                                setWalletAdjustment((current) => ({
+                                  ...current,
+                                  reason: e.target.value,
+                                }))
+                              }
+                              className="w-full min-h-[74px] bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none"
+                              placeholder="Explain the correction for audit review"
+                              disabled={walletAdjusting}
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={submitWalletAdjustment}
+                            disabled={walletAdjusting}
+                            className="w-full inline-flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:hover:bg-indigo-600 text-white rounded-lg py-2.5 text-xs font-semibold transition-colors"
+                          >
+                            {walletAdjusting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
+                            <span>{walletAdjusting ? 'Recording Adjustment...' : 'Record Wallet Adjustment'}</span>
+                          </button>
                         </div>
 
                         {/* Last ROI Withdrawal date */}

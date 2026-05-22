@@ -88,6 +88,41 @@ export class WithdrawalsService {
         roiEligible = false;
         roiMessage = `Withdrawals are locked. Next eligible date: ${getISTDateString(nextWithdrawalDate)}`;
       }
+    } else {
+      const { data: earliestInvestment, error: investmentError } =
+        await supabase
+          .from('investments')
+          .select('start_date')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .not('start_date', 'is', null)
+          .order('start_date', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+      if (investmentError) {
+        this.logger.error(
+          'Failed to fetch earliest active investment for ROI eligibility:',
+          investmentError,
+        );
+        throw new InternalServerErrorException(
+          'Error loading investment configurations',
+        );
+      }
+
+      if (!earliestInvestment?.start_date) {
+        roiEligible = false;
+        roiMessage = 'No active investment available for ROI withdrawal';
+      } else {
+        const firstWithdrawalDate = new Date(earliestInvestment.start_date);
+        firstWithdrawalDate.setDate(firstWithdrawalDate.getDate() + 30);
+
+        const now = new Date();
+        if (now < firstWithdrawalDate) {
+          roiEligible = false;
+          roiMessage = `Withdrawals are locked. Next eligible date: ${getISTDateString(firstWithdrawalDate)}`;
+        }
+      }
     }
 
     // 4. Evaluate Principal eligibility (balance > 0)
