@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
@@ -15,8 +15,14 @@ import { Sparkles, Mail, Lock, ShieldAlert, ArrowRight, Eye, EyeOff, Menu } from
 
 const MainAppContent: React.FC = () => {
   const { admin, login } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('minegrow_admin_active_tab') || 'dashboard';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('minegrow_admin_active_tab', activeTab);
+  }, [activeTab]);
   
   // Login form states
   const [email, setEmail] = useState('');
@@ -131,7 +137,7 @@ const MainAppContent: React.FC = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard setActiveTab={setActiveTab} />;
       case 'users':
         return <UsersList />;
       case 'deposits':
