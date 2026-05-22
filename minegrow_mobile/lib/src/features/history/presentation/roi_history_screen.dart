@@ -84,6 +84,19 @@ class RoiHistoryScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 14),
 
+            historyState.maybeWhen(
+              data: (history) {
+                final monthly = summarizeRoiByMonth(history);
+                if (monthly.isEmpty) return const SizedBox.shrink();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _MonthlyRoiSummaryStrip(monthly: monthly),
+                );
+              },
+              orElse: () => const SizedBox.shrink(),
+            ),
+
             // ── History list ──────────────────────────────────────────────
             historyState.when(
               loading: () => const MGLoadingList(),
@@ -120,6 +133,58 @@ class RoiHistoryScreen extends ConsumerWidget {
 }
 
 // ── History Row ───────────────────────────────────────────────────────────────
+
+class _MonthlyRoiSummaryStrip extends StatelessWidget {
+  const _MonthlyRoiSummaryStrip({required this.monthly});
+
+  final List<MonthlyRoiSummary> monthly;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 94,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: monthly.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = monthly[index];
+          return SizedBox(
+            width: 166,
+            child: MGCard(
+              padding: EdgeInsets.all(context.metrics.compactPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    item.label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: context.tokens.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    formatCurrency(item.total),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: context.tokens.success,
+                    ),
+                  ),
+                  Text(
+                    '${item.entries} ROI credits',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: context.tokens.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.item});

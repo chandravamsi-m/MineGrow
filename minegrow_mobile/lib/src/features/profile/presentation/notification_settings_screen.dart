@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/storage/local_storage.dart';
+import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../data/profile_repository.dart';
 
@@ -36,33 +37,89 @@ class _NotificationSettingsScreenState
 
   Future<void> _loadSettings() async {
     final storage = ref.read(localStorageProvider);
+    NotificationPreferences? prefs;
 
-    // Use profile notification preferences from the backend as the fallback
-    // when the device has no locally stored value (e.g., first launch).
-    final prefs = ref.read(profileProvider).maybeWhen(
-      data: (p) => p.notificationPreferences,
-      orElse: () => null,
-    );
-
-    final values = await Future.wait<bool?>([
-      storage.readBool(_pushKey),
-      storage.readBool(_investmentKey),
-      storage.readBool(_walletKey),
-      storage.readBool(_promoKey),
-    ]);
+    try {
+      prefs = (await ref.read(profileProvider.future)).notificationPreferences;
+    } catch (_) {
+      final values = await Future.wait<bool?>([
+        storage.readBool(_pushKey),
+        storage.readBool(_investmentKey),
+        storage.readBool(_walletKey),
+        storage.readBool(_promoKey),
+      ]);
+      prefs = NotificationPreferences(
+        push: values[0] ?? true,
+        investments: values[1] ?? true,
+        wallet: values[2] ?? true,
+        promotions: values[3] ?? false,
+      );
+    }
 
     if (!mounted) return;
     setState(() {
-      _pushEnabled = values[0] ?? prefs?.push ?? true;
-      _investmentEnabled = values[1] ?? prefs?.investments ?? true;
-      _walletEnabled = values[2] ?? prefs?.wallet ?? true;
-      _promoEnabled = values[3] ?? prefs?.promotions ?? false;
+      _pushEnabled = prefs?.push ?? true;
+      _investmentEnabled = prefs?.investments ?? true;
+      _walletEnabled = prefs?.wallet ?? true;
+      _promoEnabled = prefs?.promotions ?? false;
       _isLoading = false;
     });
   }
 
-  Future<void> _updateSetting(String key, bool value) async {
-    await ref.read(localStorageProvider).writeBool(key, value);
+  Future<void> _persistPreferences(NotificationPreferences previous) async {
+    final next = NotificationPreferences(
+      push: _pushEnabled,
+      investments: _investmentEnabled,
+      wallet: _walletEnabled,
+      promotions: _promoEnabled,
+    );
+
+    try {
+      final saved = await ref
+          .read(profileRepositoryProvider)
+          .updateNotificationPreferences(next);
+      await _cachePreferences(saved);
+      ref.invalidate(profileProvider);
+      if (!mounted) return;
+      setState(() {
+        _pushEnabled = saved.push;
+        _investmentEnabled = saved.investments;
+        _walletEnabled = saved.wallet;
+        _promoEnabled = saved.promotions;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _pushEnabled = previous.push;
+        _investmentEnabled = previous.investments;
+        _walletEnabled = previous.wallet;
+        _promoEnabled = previous.promotions;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not save notification preferences.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _cachePreferences(NotificationPreferences preferences) async {
+    final storage = ref.read(localStorageProvider);
+    await Future.wait([
+      storage.writeBool(_pushKey, preferences.push),
+      storage.writeBool(_investmentKey, preferences.investments),
+      storage.writeBool(_walletKey, preferences.wallet),
+      storage.writeBool(_promoKey, preferences.promotions),
+    ]);
+  }
+
+  NotificationPreferences _currentPreferences() {
+    return NotificationPreferences(
+      push: _pushEnabled,
+      investments: _investmentEnabled,
+      wallet: _walletEnabled,
+      promotions: _promoEnabled,
+    );
   }
 
   @override
@@ -86,8 +143,9 @@ class _NotificationSettingsScreenState
                   subtitle: 'Allow important account alerts on this device.',
                   value: _pushEnabled,
                   onChanged: (value) {
+                    final previous = _currentPreferences();
                     setState(() => _pushEnabled = value);
-                    _updateSetting(_pushKey, value);
+                    _persistPreferences(previous);
                   },
                 ),
                 const SizedBox(height: 10),
@@ -98,8 +156,9 @@ class _NotificationSettingsScreenState
                   value: _investmentEnabled,
                   enabled: _pushEnabled,
                   onChanged: (value) {
+                    final previous = _currentPreferences();
                     setState(() => _investmentEnabled = value);
-                    _updateSetting(_investmentKey, value);
+                    _persistPreferences(previous);
                   },
                 ),
                 const SizedBox(height: 10),
@@ -111,8 +170,9 @@ class _NotificationSettingsScreenState
                   value: _walletEnabled,
                   enabled: _pushEnabled,
                   onChanged: (value) {
+                    final previous = _currentPreferences();
                     setState(() => _walletEnabled = value);
-                    _updateSetting(_walletKey, value);
+                    _persistPreferences(previous);
                   },
                 ),
                 const SizedBox(height: 10),
@@ -123,8 +183,9 @@ class _NotificationSettingsScreenState
                   value: _promoEnabled,
                   enabled: _pushEnabled,
                   onChanged: (value) {
+                    final previous = _currentPreferences();
                     setState(() => _promoEnabled = value);
-                    _updateSetting(_promoKey, value);
+                    _persistPreferences(previous);
                   },
                 ),
                 const SizedBox(height: 16),

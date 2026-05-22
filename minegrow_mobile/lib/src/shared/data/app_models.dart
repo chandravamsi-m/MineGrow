@@ -158,6 +158,7 @@ class InvestmentRecord {
 
   final int id;
   final int planId;
+
   /// Plan name as returned by the API (e.g. "Gold Plan"). May be null if the
   /// investments endpoint does not include plan details — fall back to the
   /// plans list cross-reference in that case.
@@ -313,6 +314,62 @@ class NotificationPreferences {
       investments: map['investments'] != false,
       wallet: map['wallet'] != false,
       promotions: map['promotions'] == true,
+    );
+  }
+
+  NotificationPreferences copyWith({
+    bool? push,
+    bool? investments,
+    bool? wallet,
+    bool? promotions,
+  }) {
+    return NotificationPreferences(
+      push: push ?? this.push,
+      investments: investments ?? this.investments,
+      wallet: wallet ?? this.wallet,
+      promotions: promotions ?? this.promotions,
+    );
+  }
+
+  Map<String, bool> toJson() {
+    return {
+      'push': push,
+      'investments': investments,
+      'wallet': wallet,
+      'promotions': promotions,
+    };
+  }
+}
+
+class KycDocument {
+  const KycDocument({
+    required this.id,
+    required this.docType,
+    required this.status,
+    this.fileUrl,
+    this.createdAt,
+  });
+
+  final int id;
+  final String docType;
+  final String status;
+  final String? fileUrl;
+  final String? createdAt;
+
+  factory KycDocument.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return KycDocument(
+      id: _intValue(map['id']),
+      docType: _stringValue(map['doc_type'] ?? map['docType']),
+      status: _stringValue(map['status'], fallback: 'pending'),
+      fileUrl:
+          (map['doc_url'] ??
+                  map['document_url'] ??
+                  map['file_url'] ??
+                  map['fileUrl'] ??
+                  map['url'])
+              ?.toString(),
+      createdAt: (map['created_at'] ?? map['createdAt'])?.toString(),
     );
   }
 }

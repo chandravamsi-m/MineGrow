@@ -18,7 +18,11 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UpdateUserStatusDto, KycReviewDto } from './dto/admin.dto';
+import {
+  UpdateUserStatusDto,
+  KycReviewDto,
+  AdjustWalletDto,
+} from './dto/admin.dto';
 import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('admin')
@@ -93,6 +97,22 @@ export class AdminController {
   ) {
     const ip = req.ip || req.socket.remoteAddress;
     return this.adminService.rejectUserKyc(admin.id, parseInt(id, 10), dto, ip);
+  }
+
+  @Patch('users/:id/wallet')
+  async adjustUserWallet(
+    @CurrentUser() admin: any,
+    @Param('id') id: string,
+    @Body() dto: AdjustWalletDto,
+    @Req() req: any,
+  ) {
+    const ip = req.ip || req.socket.remoteAddress;
+    return this.adminService.adjustUserWallet(
+      admin.id,
+      parseInt(id, 10),
+      dto,
+      ip,
+    );
   }
 
   @Get('reports/dashboard')

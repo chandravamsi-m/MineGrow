@@ -8,7 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   return const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 });
@@ -18,7 +18,7 @@ final localStorageProvider = Provider<LocalStorage>((ref) {
 });
 
 class LocalStorage {
-   LocalStorage(this._secure);
+  LocalStorage(this._secure);
 
   final FlutterSecureStorage _secure;
 
