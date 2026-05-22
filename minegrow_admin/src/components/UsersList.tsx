@@ -28,10 +28,11 @@ interface UserDetail {
   mobile: string;
   email: string | null;
   address: string | null;
-  status: 'active' | 'suspended';
+  status: 'active' | 'suspended' | 'pending_kyc';
   kyc_verified: boolean;
   kyc_document_url?: string | null;
   kyc_rejection_reason?: string | null;
+  kyc_document_status?: 'pending' | 'approved' | 'rejected' | null;
   created_at: string;
   notification_preferences?: {
     push?: boolean;
@@ -176,6 +177,7 @@ export const UsersList: React.FC = () => {
           ...profile,
           kyc_document_url: getKycDocumentPath(latestKyc),
           kyc_rejection_reason: latestKyc?.admin_notes || null,
+          kyc_document_status: latestKyc?.status || null,
         });
       } else {
         toast.error(response.message || 'Failed to fetch user details');
@@ -418,14 +420,22 @@ export const UsersList: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <span className="font-mono text-xs text-indigo-400 font-semibold">#{user.id}</span>
                     <div className="flex space-x-1.5">
-                      <span className={`inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        user.kyc_verified
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${user.kyc_verified ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                        <span>{user.kyc_verified ? 'Verified' : 'Pending'}</span>
-                      </span>
+                      {user.kyc_verified ? (
+                        <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span>Verified</span>
+                        </span>
+                      ) : user.status === 'pending_kyc' ? (
+                        <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                          <span>Pending Review</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                          <span>Unverified</span>
+                        </span>
+                      )}
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
                         user.status === 'active'
                           ? 'bg-blue-500/10 text-blue-400'
@@ -517,14 +527,22 @@ export const UsersList: React.FC = () => {
                         <div className="text-xs text-slate-500 mt-0.5">{user.mobile}</div>
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                          user.kyc_verified
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${user.kyc_verified ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                          <span>{user.kyc_verified ? 'Verified' : 'Pending'}</span>
-                        </span>
+                        {user.kyc_verified ? (
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>Verified</span>
+                          </span>
+                        ) : user.status === 'pending_kyc' ? (
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                            <span>Pending Review</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                            <span>Unverified</span>
+                          </span>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
@@ -583,7 +601,7 @@ export const UsersList: React.FC = () => {
         {/* Drawer */}
         <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl h-full bg-slate-950/98 border-l border-slate-800/80 shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.5)] flex flex-col animate-slideIn">
               {/* Header */}
-              <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-400">
                     <FileText className="w-5 h-5" />
@@ -605,55 +623,55 @@ export const UsersList: React.FC = () => {
               </div>
 
               {/* Tab Navigation */}
-              <div className="flex border-b border-slate-800 bg-slate-900/30 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap">
+              <div className="flex items-stretch border-b border-slate-800 bg-slate-900/30 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap h-[50px] min-h-[50px] flex-shrink-0">
                 <button
                   onClick={() => setDrawerTab('profile')}
-                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-2 h-full px-5 sm:px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-200 whitespace-nowrap ${
                     drawerTab === 'profile'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <User className="w-3.5 h-3.5" />
+                  <User className="w-4 h-4" />
                   <span>Profile & KYC</span>
                 </button>
                 <button
                   onClick={() => setDrawerTab('wallet')}
-                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-2 h-full px-5 sm:px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-200 whitespace-nowrap ${
                     drawerTab === 'wallet'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Wallet className="w-3.5 h-3.5" />
+                  <Wallet className="w-4 h-4" />
                   <span>Balances & Banks</span>
                 </button>
                 <button
                   onClick={() => setDrawerTab('investments')}
-                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-2 h-full px-5 sm:px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-200 whitespace-nowrap ${
                     drawerTab === 'investments'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Briefcase className="w-3.5 h-3.5" />
+                  <Briefcase className="w-4 h-4" />
                   <span>Investments ({userDetailPayload?.investments?.length || 0})</span>
                 </button>
                 <button
                   onClick={() => setDrawerTab('withdrawals')}
-                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-1.5 py-3 px-5 sm:px-1 text-xs font-semibold border-b-2 cursor-pointer transition-all duration-200 ${
+                  className={`flex-shrink-0 sm:flex-1 flex items-center justify-center space-x-2 h-full px-5 sm:px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-200 whitespace-nowrap ${
                     drawerTab === 'withdrawals'
                       ? 'border-indigo-500 text-indigo-400 font-bold bg-indigo-500/5'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <History className="w-3.5 h-3.5" />
+                  <History className="w-4 h-4" />
                   <span>Payouts ({userDetailPayload?.withdrawals?.length || 0})</span>
                 </button>
               </div>
 
               {/* Body */}
-              <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar min-h-0">
                 {detailsLoading ? (
                   <div className="space-y-6 animate-pulse">
                     <div className="bg-slate-900/20 rounded-xl p-4 border border-slate-900 h-28 space-y-3">
@@ -691,13 +709,23 @@ export const UsersList: React.FC = () => {
                               }`}>
                                 Account: {selectedUser.status}
                               </span>
-                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${
-                                selectedUser.kyc_verified 
-                                  ? 'bg-indigo-500/5 border-indigo-500/10 text-indigo-400' 
-                                  : 'bg-amber-500/5 border-amber-500/10 text-amber-400'
-                              }`}>
-                                KYC: {selectedUser.kyc_verified ? 'Verified' : 'Pending'}
-                              </span>
+                              {selectedUser.kyc_verified ? (
+                                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border bg-emerald-500/5 border-emerald-500/10 text-emerald-400">
+                                  KYC: Verified
+                                </span>
+                              ) : selectedUser.kyc_document_status === 'pending' ? (
+                                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border bg-amber-500/5 border-amber-500/10 text-amber-400 animate-pulse">
+                                  KYC: Pending Review
+                                </span>
+                              ) : selectedUser.kyc_document_status === 'rejected' ? (
+                                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border bg-rose-500/5 border-rose-500/10 text-rose-400">
+                                  KYC: Rejected
+                                </span>
+                              ) : (
+                                <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border bg-slate-500/5 border-slate-500/10 text-slate-400">
+                                  KYC: Unverified
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -765,7 +793,7 @@ export const UsersList: React.FC = () => {
                               )}
 
                               {/* Decisions block */}
-                              {!selectedUser.kyc_verified && (
+                              {!selectedUser.kyc_verified && selectedUser.kyc_document_status === 'pending' && (
                                 <div className="space-y-2 pt-2 border-t border-slate-800/60">
                                   {!showRejectForm ? (
                                     <div className="grid grid-cols-2 gap-3">

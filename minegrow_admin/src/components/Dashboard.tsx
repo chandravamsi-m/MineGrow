@@ -25,7 +25,11 @@ interface DashboardStats {
   totalDailyRoiDistributed: number;
 }
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -287,27 +291,43 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
-                <span className="text-xs text-slate-400 font-medium">Pending Deposits Review</span>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+              <button
+                onClick={() => setActiveTab?.('deposits')}
+                disabled={!setActiveTab}
+                className={`w-full flex justify-between items-center p-3 bg-slate-900/40 hover:bg-slate-800/40 active:scale-[0.99] border border-slate-800/50 hover:border-slate-700/60 rounded-xl transition-all duration-200 text-left group ${
+                  setActiveTab ? 'cursor-pointer' : ''
+                }`}
+              >
+                <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">
+                  Pending Deposits Review
+                </span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold transition-all ${
                   (stats?.pendingDepositApprovalsCount || 0) > 0 
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse' 
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse group-hover:scale-105' 
                     : 'bg-slate-800 text-slate-500'
                 }`}>
                   {stats?.pendingDepositApprovalsCount || 0}
                 </span>
-              </div>
+              </button>
 
-              <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
-                <span className="text-xs text-slate-400 font-medium">Pending Withdrawals Queue</span>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+              <button
+                onClick={() => setActiveTab?.('withdrawals')}
+                disabled={!setActiveTab}
+                className={`w-full flex justify-between items-center p-3 bg-slate-900/40 hover:bg-slate-800/40 active:scale-[0.99] border border-slate-800/50 hover:border-slate-700/60 rounded-xl transition-all duration-200 text-left group ${
+                  setActiveTab ? 'cursor-pointer' : ''
+                }`}
+              >
+                <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">
+                  Pending Withdrawals Queue
+                </span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold transition-all ${
                   (stats?.pendingWithdrawalRequestsCount || 0) > 0 
-                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-105' 
                     : 'bg-slate-800 text-slate-500'
                 }`}>
                   {stats?.pendingWithdrawalRequestsCount || 0}
                 </span>
-              </div>
+              </button>
             </div>
           </div>
 
