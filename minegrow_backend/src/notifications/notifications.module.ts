@@ -1,9 +1,12 @@
 import { Global, Module } from '@nestjs/common';
 import { FcmService } from './fcm.service';
+import { NotificationsService } from './notifications.service';
+import { NotificationsController } from './notifications.controller';
 
 @Global()
 @Module({
-  providers: [FcmService],
-  exports: [FcmService],
+  controllers: [NotificationsController],
+  providers: [FcmService, NotificationsService],
+  exports: [FcmService, NotificationsService],
 })
 export class NotificationsModule {}

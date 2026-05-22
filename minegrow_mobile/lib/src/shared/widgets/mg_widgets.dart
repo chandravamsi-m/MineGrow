@@ -114,7 +114,11 @@ class MGMainNavigationShell extends StatelessWidget {
         location == AppRoutes.withdrawalHistory) {
       return 3;
     }
-    if (location == AppRoutes.profile || location == AppRoutes.notifications) {
+    if (location == AppRoutes.profile ||
+        location == AppRoutes.bankAccounts ||
+        location == AppRoutes.upiDetails ||
+        location == AppRoutes.notificationSettings ||
+        location == AppRoutes.notifications) {
       return 4;
     }
     return 0;
@@ -305,17 +309,20 @@ class MGFriendlyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: compact ? 42 : 58,
-            height: compact ? 42 : 58,
-            decoration: BoxDecoration(
-              color: context.tokens.brandGold.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: context.tokens.brandGold,
-              size: compact ? 22 : 30,
+          // Decorative icon — title/message convey the meaning (WCAG 1.1.1)
+          ExcludeSemantics(
+            child: Container(
+              width: compact ? 42 : 58,
+              height: compact ? 42 : 58,
+              decoration: BoxDecoration(
+                color: context.tokens.brandGold.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: context.tokens.brandGold,
+                size: compact ? 22 : 30,
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -705,12 +712,25 @@ class MGStatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Icon conveys status without relying on color alone (WCAG 1.4.1)
+          if (status == MGStatus.verified) ...[
+            Icon(Icons.check_circle_outline, size: 11, color: color),
+            const SizedBox(width: 4),
+          ] else if (status == MGStatus.rejected) ...[
+            Icon(Icons.cancel_outlined, size: 11, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

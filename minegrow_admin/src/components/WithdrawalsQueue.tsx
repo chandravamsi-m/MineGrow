@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useConfirm } from '../context/ConfirmContext';
+import { useToast } from '../context/ToastContext';
+
 import {
   FileText,
   Check,
@@ -7,7 +10,6 @@ import {
   AlertCircle,
   Clock,
   Eye,
-  Loader2,
   IndianRupee,
   Building,
   QrCode,
@@ -39,6 +41,8 @@ export const WithdrawalsQueue: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
   
   // Selected detail card
   const [selectedItem, setSelectedItem] = useState<WithdrawalDetail | null>(null);
@@ -76,69 +80,86 @@ export const WithdrawalsQueue: React.FC = () => {
   }, [statusFilter]);
 
   const approveRequest = async (id: number) => {
-    if (!window.confirm('Are you sure you want to approve this withdrawal request? This transitions the transaction to APPROVED (Pending physical bank dispatch/UPI wire transfer).')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/withdrawals/${id}/approve`);
-      if (response.success) {
-        alert('Withdrawal request approved');
-        fetchWithdrawals();
-      } else {
-        alert(response.message || 'Approval action failed');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred approving withdrawal');
-    } finally {
-      setActionLoading(false);
-    }
+    confirm({
+      title: 'Approve Withdrawal Request',
+      message: 'Are you sure you want to approve this withdrawal request? This transitions the transaction to APPROVED (Pending physical bank dispatch/UPI wire transfer).',
+      confirmText: 'Approve Withdrawal',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/withdrawals/${id}/approve`);
+          if (response.success) {
+            toast.success('Withdrawal request approved');
+            fetchWithdrawals();
+            if (selectedItem?.id === id) {
+              setSelectedItem(null);
+            }
+          } else {
+            toast.error(response.message || 'Approval action failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred approving withdrawal');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const rejectRequest = async (id: number) => {
     if (!rejectReason.trim()) {
-      alert('Please specify the reason for transaction rejection.');
+      toast.warning('Please specify the reason for transaction rejection.');
       return;
     }
     
     setActionLoading(true);
     try {
-      const response = await api.post<any>(`admin/withdrawals/${id}/reject`, { reason: rejectReason });
+      const response = await api.post<any>(`admin/withdrawals/${id}/reject`, { adminNote: rejectReason });
       if (response.success) {
-        alert('Withdrawal request rejected and ledger funds returned to wallet balance');
+        toast.success('Withdrawal request rejected and ledger funds returned to wallet balance');
         setShowRejectForm(false);
         setRejectReason('');
         fetchWithdrawals();
+        if (selectedItem?.id === id) {
+          setSelectedItem(null);
+        }
       } else {
-        alert(response.message || 'Rejection action failed');
+        toast.error(response.message || 'Rejection action failed');
       }
     } catch (e: any) {
-      alert(e.message || 'Error occurred rejecting withdrawal');
+      toast.error(e.message || 'Error occurred rejecting withdrawal');
     } finally {
       setActionLoading(false);
     }
   };
 
   const completeRequest = async (id: number) => {
-    if (!window.confirm('Are you sure you want to mark this withdrawal as physically COMPLETED? This confirms the cash transfer has been successfully settled with the client bank/UPI and completes the system agreement.')) {
-      return;
-    }
-    
-    setActionLoading(true);
-    try {
-      const response = await api.post<any>(`admin/withdrawals/${id}/complete`);
-      if (response.success) {
-        alert('Withdrawal transaction marked completed successfully!');
-        fetchWithdrawals();
-      } else {
-        alert(response.message || 'Completion update failed');
-      }
-    } catch (e: any) {
-      alert(e.message || 'Error occurred completing withdrawal');
-    } finally {
-      setActionLoading(false);
-    }
+    confirm({
+      title: 'Complete Withdrawal',
+      message: 'Are you sure you want to mark this withdrawal as physically COMPLETED? This confirms the cash transfer has been successfully settled with the client bank/UPI and completes the system agreement.',
+      confirmText: 'Complete Withdrawal',
+      type: 'success',
+      onConfirm: async () => {
+        setActionLoading(true);
+        try {
+          const response = await api.post<any>(`admin/withdrawals/${id}/complete`);
+          if (response.success) {
+            toast.success('Withdrawal transaction marked completed successfully!');
+            fetchWithdrawals();
+            if (selectedItem?.id === id) {
+              setSelectedItem(null);
+            }
+          } else {
+            toast.error(response.message || 'Completion update failed');
+          }
+        } catch (e: any) {
+          toast.error(e.message || 'Error occurred completing withdrawal');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+    });
   };
 
   const triggerExportCsv = async () => {
@@ -154,18 +175,20 @@ export const WithdrawalsQueue: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success('Withdrawals list exported to CSV successfully');
     } catch (e: any) {
-      alert(e.message || 'Error occurred exporting CSV ledger file');
+      toast.error(e.message || 'Error occurred exporting CSV ledger file');
     }
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn relative">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-        <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Withdrawal Queue</h2>
-          <p className="text-slate-400 text-sm mt-1">Approve pending withdrawal requests, manage physical transfers, and complete settlements.</p>
-        </div>
+    <div className="relative">
+      <div className="space-y-6 animate-fadeIn">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+          <div>
+            <h2 className="text-3xl font-extrabold text-white tracking-tight">Withdrawal Queue</h2>
+            <p className="text-slate-400 text-sm mt-1">Approve pending withdrawal requests, manage physical transfers, and complete settlements.</p>
+          </div>
         <button
           onClick={triggerExportCsv}
           className="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-indigo-400 font-semibold rounded-xl text-xs hover:text-indigo-300 transition-all duration-300 shadow-md cursor-pointer"
@@ -183,10 +206,10 @@ export const WithdrawalsQueue: React.FC = () => {
       )}
 
       {/* Navigation tabs */}
-      <div className="flex border-b border-slate-800 space-x-6">
+      <div className="flex border-b border-slate-800 space-x-4 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap">
         <button
           onClick={() => setStatusFilter('pending')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'pending'
               ? 'border-indigo-500 text-indigo-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -196,7 +219,7 @@ export const WithdrawalsQueue: React.FC = () => {
         </button>
         <button
           onClick={() => setStatusFilter('approved')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'approved'
               ? 'border-amber-500 text-amber-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -206,7 +229,7 @@ export const WithdrawalsQueue: React.FC = () => {
         </button>
         <button
           onClick={() => setStatusFilter('completed')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'completed'
               ? 'border-emerald-500 text-emerald-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -216,7 +239,7 @@ export const WithdrawalsQueue: React.FC = () => {
         </button>
         <button
           onClick={() => setStatusFilter('rejected')}
-          className={`pb-4 px-1 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 ${
+          className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'rejected'
               ? 'border-rose-500 text-rose-400 font-bold'
               : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -230,7 +253,105 @@ export const WithdrawalsQueue: React.FC = () => {
       <div className="w-full">
         {/* Main table */}
         <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto custom-scrollbar">
+          {/* Mobile View: Cards stack */}
+          <div className="block sm:hidden divide-y divide-slate-800/60 text-sm">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <div key={idx} className="p-4 space-y-3 animate-pulse">
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-slate-800 rounded w-12"></div>
+                    <div className="h-5 bg-slate-800 rounded w-16"></div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-800 rounded w-32"></div>
+                    <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <div className="h-4 bg-slate-800 rounded w-16"></div>
+                    <div className="h-8 bg-slate-800 rounded-lg w-10"></div>
+                  </div>
+                </div>
+              ))
+            ) : withdrawals.length === 0 ? (
+              <div className="p-12 text-center text-slate-500">
+                No withdrawal records match this filter tab.
+              </div>
+            ) : (
+              withdrawals.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-4 space-y-3 hover:bg-slate-900/10 transition-colors duration-250 cursor-pointer ${
+                    selectedItem?.id === item.id ? 'bg-slate-900/40' : ''
+                  }`}
+                  onClick={() => {
+                    setSelectedItem(item);
+                    setShowRejectForm(false);
+                    setRejectReason('');
+                  }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-xs text-indigo-400 font-semibold">#{item.id}</span>
+                    <div className="flex items-center space-x-1.5">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                        item.withdrawal_type === 'roi'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                      }`}>
+                        {item.withdrawal_type === 'roi' ? 'ROI Profit' : 'Principal'}
+                      </span>
+                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                        item.status === 'completed'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : item.status === 'approved'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : item.status === 'pending'
+                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse'
+                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold text-slate-200 text-sm">
+                      {item.users?.full_name || 'System Member'}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Mobile: {item.users?.mobile || `ID #${item.user_id}`}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Requested: {new Date(item.requested_at).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-800/40" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">Transfer Amount</span>
+                      <div className="flex items-center text-slate-200 font-bold">
+                        <IndianRupee className="w-3.5 h-3.5 mr-0.5 text-indigo-400" />
+                        <span>{item.amount.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setShowRejectForm(false);
+                        setRejectReason('');
+                      }}
+                      className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-all duration-300"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop/Tablet View: Table layout */}
+          <div className="hidden sm:block overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -243,14 +364,18 @@ export const WithdrawalsQueue: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-slate-500">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                        <span>Loading settlement ledgers...</span>
-                      </div>
-                    </td>
-                  </tr>
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="animate-pulse border-b border-slate-800/40">
+                      <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
+                      <td className="p-4">
+                        <div className="h-4 bg-slate-800 rounded w-28 mb-1.5"></div>
+                        <div className="h-3 bg-slate-800/60 rounded w-20"></div>
+                      </td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-16"></div></td>
+                      <td className="p-4"><div className="h-4 bg-slate-800 rounded w-12"></div></td>
+                      <td className="p-4 pr-6 text-center"><div className="h-8 bg-slate-800 rounded-lg w-8 mx-auto"></div></td>
+                    </tr>
+                  ))
                 ) : withdrawals.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-12 text-center text-slate-500">
@@ -314,20 +439,22 @@ export const WithdrawalsQueue: React.FC = () => {
             </table>
           </div>
         </div>
+      </div>
+    </div>
 
-        {/* Slide-over Settlement drawer */}
-        {selectedItem && (
-          <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm z-40 transition-opacity duration-300"
-              onClick={() => {
-                setSelectedItem(null);
-                setShowRejectForm(false);
-              }}
-            />
-            {/* Drawer */}
-            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-2xl flex flex-col animate-slideIn">
+    {/* Slide-over Settlement drawer */}
+    {selectedItem && (
+      <>
+        {/* Backdrop */}
+        <div 
+          className="fixed inset-0 bg-slate-950/70 z-40 animate-fadeIn"
+          onClick={() => {
+            setSelectedItem(null);
+            setShowRejectForm(false);
+          }}
+        />
+        {/* Drawer */}
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-lg h-full bg-slate-950/98 border-l border-slate-800/80 shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.5)] flex flex-col animate-slideIn">
               {/* Header */}
               <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -530,7 +657,6 @@ export const WithdrawalsQueue: React.FC = () => {
             </div>
           </>
         )}
-      </div>
     </div>
   );
 };

@@ -111,6 +111,7 @@ abstract final class AuthStorageKeys {
   static const refreshToken = 'auth.refreshToken';
   static const mobile = 'auth.mobile';
   static const otpPurpose = 'auth.otpPurpose';
+  static const otpResendDelay = 'auth.otpResendDelay';
 }
 
 class ApiClient {
@@ -198,6 +199,20 @@ class ApiClient {
       data: data,
       queryParameters: queryParameters,
       options: options,
+    );
+    return parser(_unwrapData(response.data));
+  }
+
+  Future<T> putData<T>(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    required T Function(Object? json) parser,
+  }) async {
+    final response = await put<Object?>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
     );
     return parser(_unwrapData(response.data));
   }

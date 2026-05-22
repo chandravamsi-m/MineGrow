@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { UsersList } from './components/UsersList';
@@ -7,13 +9,20 @@ import { DepositsQueue } from './components/DepositsQueue';
 import { WithdrawalsQueue } from './components/WithdrawalsQueue';
 import { PlansManager } from './components/PlansManager';
 import { LedgerViewer } from './components/LedgerViewer';
-import { Sparkles, Mail, Lock, ShieldAlert, CheckCircle, ArrowRight, Loader2, Eye, EyeOff, Menu } from 'lucide-react';
+import { Settings } from './components/Settings';
+import { Sparkles, Mail, Lock, ShieldAlert, ArrowRight, Eye, EyeOff, Menu } from 'lucide-react';
 
 
 const MainAppContent: React.FC = () => {
-  const { admin, loading, login } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { admin, login } = useAuth();
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('minegrow_admin_active_tab') || 'dashboard';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('minegrow_admin_active_tab', activeTab);
+  }, [activeTab]);
   
   // Login form states
   const [email, setEmail] = useState('');
@@ -21,10 +30,6 @@ const MainAppContent: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  // Seeding states
-  const [seedStatus, setSeedStatus] = useState<{ success: boolean; message: string } | null>(null);
-  const [seedingLoading, setSeedingLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,60 +45,6 @@ const MainAppContent: React.FC = () => {
       setLoginLoading(false);
     }
   };
-
-  const handleSeedAdmin = async () => {
-    if (!window.confirm('Do you want to seed the default system super admin? This will trigger the auth/admin/seed endpoint using the default bootstrap security key.')) {
-      return;
-    }
-
-    setSeedingLoading(true);
-    setSeedStatus(null);
-    try {
-      const response = await fetch('http://localhost:3000/api/v1/auth/admin/seed', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-seed-secret': 'admin-bootstrap-secret-999',
-        },
-        body: JSON.stringify({
-          email: 'admin@minegrow.com',
-          password: 'adminpassword123',
-        }),
-      });
-
-      const payload = await response.json();
-      if (response.ok && payload.success) {
-        setSeedStatus({
-          success: true,
-          message: 'Super Admin seeded! Login with: admin@minegrow.com / adminpassword123',
-        });
-        setEmail('admin@minegrow.com');
-        setPassword('adminpassword123');
-      } else {
-        const errorMsg = payload?.error?.message || payload?.message || 'Seeding rejected (Admin may already exist)';
-        setSeedStatus({
-          success: false,
-          message: errorMsg,
-        });
-      }
-    } catch (err: any) {
-      setSeedStatus({
-        success: false,
-        message: err.message || 'Server connection failed',
-      });
-    } finally {
-      setSeedingLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-slate-100">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
-        <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">Loading Session Cache...</span>
-      </div>
-    );
-  }
 
   // Not logged in: Show premium glassmorphic login card
   if (!admin) {
@@ -177,37 +128,6 @@ const MainAppContent: React.FC = () => {
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
           </form>
-
-          {/* Quick-Seed Block */}
-          <div className="border-t border-slate-800/80 pt-6 space-y-4">
-            <div className="flex flex-col text-center space-y-1 text-[11px] text-slate-500">
-              <span className="font-semibold text-slate-400">First Time Setup Seeding</span>
-              <span>Need to bootstrap the DB super admin credentials?</span>
-            </div>
-
-            <button
-              onClick={handleSeedAdmin}
-              disabled={seedingLoading}
-              className="w-full flex items-center justify-center space-x-1.5 py-2.5 rounded-xl border border-dashed border-indigo-500/30 hover:border-indigo-500/60 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-400 text-[10px] font-bold tracking-wider uppercase transition-all duration-300 cursor-pointer"
-            >
-              <span>{seedingLoading ? 'Generating Admin Account...' : 'Bootstrap First Super Admin'}</span>
-            </button>
-
-            {seedStatus && (
-              <div className={`p-3 rounded-xl flex items-start space-x-2 border text-[10px] leading-relaxed ${
-                seedStatus.success
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                  : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-              }`}>
-                {seedStatus.success ? (
-                  <CheckCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                )}
-                <span>{seedStatus.message}</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     );
@@ -217,7 +137,7 @@ const MainAppContent: React.FC = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard setActiveTab={setActiveTab} />;
       case 'users':
         return <UsersList />;
       case 'deposits':
@@ -228,6 +148,8 @@ const MainAppContent: React.FC = () => {
         return <PlansManager />;
       case 'ledger':
         return <LedgerViewer />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Dashboard />;
     }
@@ -236,25 +158,25 @@ const MainAppContent: React.FC = () => {
   return (
     <div className="min-h-screen lg:pl-64 bg-slate-950 text-slate-100 flex flex-col">
       {/* Mobile Top Header */}
-      <header className="lg:hidden flex items-center justify-between p-4 bg-slate-950/80 border-b border-slate-800/80 sticky top-0 z-30 backdrop-blur-md">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-base text-white tracking-tight">MineGrow</span>
-        </div>
+      <header className="lg:hidden flex items-center p-4 bg-slate-950/80 border-b border-slate-800/80 sticky top-0 z-30 backdrop-blur-md space-x-3">
         <button
           onClick={() => setIsSidebarOpen(true)}
           className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/40 rounded-lg transition-colors cursor-pointer"
         >
           <Menu className="w-6 h-6" />
         </button>
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-base text-white tracking-tight">MineGrow</span>
+        </div>
       </header>
 
       {/* Sidebar Backdrop for Mobile */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-slate-950/75 z-40 lg:hidden transition-opacity duration-300 animate-fadeIn"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -275,7 +197,11 @@ const MainAppContent: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <MainAppContent />
+      <ToastProvider>
+        <ConfirmProvider>
+          <MainAppContent />
+        </ConfirmProvider>
+      </ToastProvider>
     </AuthProvider>
   );
 }

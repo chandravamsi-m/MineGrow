@@ -6,11 +6,28 @@ import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../withdrawal/data/withdrawals_repository.dart';
 
-class WithdrawalHistoryScreen extends ConsumerWidget {
+class WithdrawalHistoryScreen extends ConsumerStatefulWidget {
   const WithdrawalHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WithdrawalHistoryScreen> createState() =>
+      _WithdrawalHistoryScreenState();
+}
+
+class _WithdrawalHistoryScreenState
+    extends ConsumerState<WithdrawalHistoryScreen> {
+  int _filter = 0; // 0=All, 1=ROI, 2=Principal
+
+  List<WithdrawalItem> _applyFilter(List<WithdrawalItem> all) {
+    return switch (_filter) {
+      1 => all.where((item) => item.type == 'roi').toList(),
+      2 => all.where((item) => item.type == 'principal').toList(),
+      _ => all,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final historyState = ref.watch(withdrawalsProvider);
 
     return MGScaffold(
@@ -21,8 +38,8 @@ class WithdrawalHistoryScreen extends ConsumerWidget {
         child: Column(
           children: [
             MGSegmentedControl<int>(
-              value: 0,
-              onChanged: (_) {},
+              value: _filter,
+              onChanged: (value) => setState(() => _filter = value),
               items: const [
                 MGSegment(label: 'All', value: 0),
                 MGSegment(label: 'ROI', value: 1),
@@ -41,18 +58,22 @@ class WithdrawalHistoryScreen extends ConsumerWidget {
                 onAction: () => ref.invalidate(withdrawalsProvider),
               ),
               data: (history) {
-                if (history.isEmpty) {
-                  return const MGFriendlyState(
+                final filtered = _applyFilter(history);
+                if (filtered.isEmpty) {
+                  return MGFriendlyState(
                     icon: Icons.account_balance_wallet_outlined,
-                    title: 'No withdrawals yet',
-                    message:
-                        'Requested withdrawals and their approval status will appear here.',
+                    title: history.isEmpty
+                        ? 'No withdrawals yet'
+                        : 'No ${_filter == 1 ? 'ROI' : 'Principal'} withdrawals',
+                    message: history.isEmpty
+                        ? 'Requested withdrawals and their approval status will appear here.'
+                        : 'Switch to "All" to see all your withdrawal requests.',
                   );
                 }
 
                 return Column(
                   children: [
-                    for (final item in history) ...[
+                    for (final item in filtered) ...[
                       _WithdrawalRow(item: item),
                       const SizedBox(height: 12),
                     ],

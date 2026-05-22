@@ -60,7 +60,46 @@ export class FcmService implements OnModuleInit {
   ): Promise<void> {
     const supabase = this.supabaseService.getClient();
 
-    // 1. Fetch active device tokens
+    // Map raw notification types to allowed database constraint enums
+    let dbType = 'general';
+    const rawType = data?.type || '';
+    const allowedTypes = [
+      'roi_credit',
+      'deposit_approved',
+      'deposit_rejected',
+      'withdrawal_approved',
+      'withdrawal_completed',
+      'withdrawal_rejected',
+      'investment_matured',
+      'general',
+    ];
+    if (allowedTypes.includes(rawType)) {
+      dbType = rawType;
+    } else if (rawType === 'investment_maturity') {
+      dbType = 'investment_matured';
+    } else if (rawType === 'deposit') {
+      dbType = 'deposit_approved';
+    } else if (rawType === 'withdrawal') {
+      dbType = 'withdrawal_approved';
+    }
+
+    // 1. Persist notification to Supabase database history
+    try {
+      const { error: dbError } = await supabase.from('notifications').insert({
+        user_id: userId,
+        title,
+        body,
+        type: dbType,
+        is_read: false,
+      });
+      if (dbError) {
+        this.logger.error(`Failed to save notification record to DB:`, dbError);
+      }
+    } catch (dbErr) {
+      this.logger.error(`Exception writing notification to DB:`, dbErr);
+    }
+
+    // 2. Fetch active device tokens
     const { data: tokens, error } = await supabase
       .from('device_tokens')
       .select('fcm_token')
