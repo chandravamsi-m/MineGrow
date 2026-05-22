@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Users,
   TrendingUp,
@@ -23,12 +25,18 @@ interface DashboardStats {
   totalDailyRoiDistributed: number;
 }
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  setActiveTab?: (tab: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roiTriggering, setRoiTriggering] = useState(false);
   const [roiStatus, setRoiStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const fetchStats = async () => {
     try {
@@ -41,6 +49,7 @@ export const Dashboard: React.FC = () => {
       }
     } catch (e: any) {
       setError(e.message || 'Network error fetching stats');
+      toast.error(e.message || 'Failed to sync system statistics dashboard');
     } finally {
       setLoading(false);
     }
@@ -50,38 +59,94 @@ export const Dashboard: React.FC = () => {
     fetchStats();
   }, []);
 
-  const triggerDailyRoi = async () => {
-    if (!window.confirm('Are you sure you want to trigger the daily ROI interest payout manually? This will process interest generation for all active maturity investments.')) {
-      return;
-    }
-    setRoiTriggering(true);
-    setRoiStatus(null);
-    try {
-      const response = await api.post<any>('admin/roi/trigger');
-      if (response.success) {
-        setRoiStatus({
-          success: true,
-          message: response.message || response.data?.message || 'Daily interest payout completed successfully!',
-        });
-        // Reload statistics to see updated totals
-        fetchStats();
-      } else {
-        throw new Error(response.message || 'ROI processing routine failed');
+  const triggerDailyRoi = () => {
+    confirm({
+      title: 'Manual Interest Payout Process',
+      message: 'Are you sure you want to trigger the daily ROI interest payout manually? This will process interest generation for all active maturity investments.',
+      confirmText: 'Run Payout Script',
+      type: 'warning',
+      onConfirm: async () => {
+        setRoiTriggering(true);
+        setRoiStatus(null);
+        try {
+          const response = await api.post<any>('admin/roi/trigger');
+          if (response.success) {
+            const msg = response.message || response.data?.message || 'Daily interest payout completed successfully!';
+            setRoiStatus({
+              success: true,
+              message: msg,
+            });
+            toast.success(msg);
+            // Reload statistics to see updated totals
+            fetchStats();
+          } else {
+            throw new Error(response.message || 'ROI processing routine failed');
+          }
+        } catch (e: any) {
+          const errorMsg = e.message || 'Error occurred executing ROI script';
+          setRoiStatus({
+            success: false,
+            message: errorMsg,
+          });
+          toast.error(errorMsg);
+        } finally {
+          setRoiTriggering(false);
+        }
       }
-    } catch (e: any) {
-      setRoiStatus({
-        success: false,
-        message: e.message || 'Error occurred executing ROI script',
-      });
-    } finally {
-      setRoiTriggering(false);
-    }
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+      <div className="space-y-8 animate-pulse">
+        {/* Header skeleton */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+          <div className="space-y-2">
+            <div className="h-8 bg-slate-900 rounded-xl w-48"></div>
+            <div className="h-4 bg-slate-900/60 rounded-xl w-72"></div>
+          </div>
+          <div className="h-10 bg-slate-900 rounded-lg w-48 hidden md:block"></div>
+        </div>
+
+        {/* Stats Grid skeleton - 4 items matching flex layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6 flex items-center space-x-4">
+              <div className="p-3 bg-slate-800 rounded-xl w-12 h-12 flex-shrink-0 animate-pulse"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-slate-800 rounded w-24"></div>
+                <div className="h-6 bg-slate-800 rounded w-16 animate-pulse"></div>
+                <div className="h-2.5 bg-slate-800/60 rounded w-14"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Action panel & Cron controllers skeleton */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Core Trigger Center Skeleton */}
+          <div className="lg:col-span-2 bg-slate-900/30 border border-slate-900/50 p-6 rounded-2xl space-y-6">
+            <div className="h-6 bg-slate-800 rounded w-1/3 border-b border-slate-800 pb-4"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-slate-900/60 rounded w-full"></div>
+              <div className="h-4 bg-slate-900/60 rounded w-5/6"></div>
+            </div>
+            <div className="h-24 bg-slate-950/60 rounded-xl border border-slate-900/80 p-4"></div>
+            <div className="h-12 bg-slate-900 rounded-xl w-48 animate-pulse"></div>
+          </div>
+          
+          {/* Tasks Queue Skeleton */}
+          <div className="bg-slate-900/30 border border-slate-900/50 p-6 rounded-2xl flex flex-col justify-between h-full space-y-6">
+            <div className="space-y-6">
+              <div className="h-6 bg-slate-800 rounded w-1/2 border-b border-slate-800 pb-4"></div>
+              <div className="space-y-4">
+                <div className="h-12 bg-slate-905 border border-slate-800/80 rounded-xl"></div>
+                <div className="h-12 bg-slate-905 border border-slate-800/80 rounded-xl"></div>
+              </div>
+            </div>
+            <div className="h-8 bg-slate-900/30 rounded w-full mt-8"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -108,7 +173,7 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* User Card */}
         <div className="glass-card p-6 rounded-2xl flex items-center space-x-4">
           <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400">
@@ -159,7 +224,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Action panel & Cron controllers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Core Trigger Center */}
         <div className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-6">
           <div className="flex items-center space-x-3 border-b border-slate-800 pb-4">
@@ -226,27 +291,43 @@ export const Dashboard: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
-                <span className="text-xs text-slate-400 font-medium">Pending Deposits Review</span>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+              <button
+                onClick={() => setActiveTab?.('deposits')}
+                disabled={!setActiveTab}
+                className={`w-full flex justify-between items-center p-3 bg-slate-900/40 hover:bg-slate-800/40 active:scale-[0.99] border border-slate-800/50 hover:border-slate-700/60 rounded-xl transition-all duration-200 text-left group ${
+                  setActiveTab ? 'cursor-pointer' : ''
+                }`}
+              >
+                <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">
+                  Pending Deposits Review
+                </span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold transition-all ${
                   (stats?.pendingDepositApprovalsCount || 0) > 0 
-                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse' 
+                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse group-hover:scale-105' 
                     : 'bg-slate-800 text-slate-500'
                 }`}>
                   {stats?.pendingDepositApprovalsCount || 0}
                 </span>
-              </div>
+              </button>
 
-              <div className="flex justify-between items-center p-3 bg-slate-900/40 rounded-xl border border-slate-800/50">
-                <span className="text-xs text-slate-400 font-medium">Pending Withdrawals Queue</span>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+              <button
+                onClick={() => setActiveTab?.('withdrawals')}
+                disabled={!setActiveTab}
+                className={`w-full flex justify-between items-center p-3 bg-slate-900/40 hover:bg-slate-800/40 active:scale-[0.99] border border-slate-800/50 hover:border-slate-700/60 rounded-xl transition-all duration-200 text-left group ${
+                  setActiveTab ? 'cursor-pointer' : ''
+                }`}
+              >
+                <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors font-medium">
+                  Pending Withdrawals Queue
+                </span>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold transition-all ${
                   (stats?.pendingWithdrawalRequestsCount || 0) > 0 
-                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-105' 
                     : 'bg-slate-800 text-slate-500'
                 }`}>
                   {stats?.pendingWithdrawalRequestsCount || 0}
                 </span>
-              </div>
+              </button>
             </div>
           </div>
 

@@ -11,11 +11,31 @@ CREATE TABLE IF NOT EXISTS users (
     mobile VARCHAR(15) UNIQUE NOT NULL,
     email VARCHAR(100) UNIQUE,
     password_hash TEXT,
+    address TEXT,
     status VARCHAR(20) DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'suspended', 'pending_kyc')),
     kyc_verified BOOLEAN DEFAULT false NOT NULL,
+    notification_preferences JSONB DEFAULT '{"push": true, "investments": true, "wallet": true, "promotions": false}'::jsonb NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- 1b. Create 'app_config' table
+CREATE TABLE IF NOT EXISTS app_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
+INSERT INTO app_config (key, value) VALUES 
+  ('payment_upi_id', 'minegrow@upi'),
+  ('otp_resend_delay', '30'),
+  ('support_email', 'support@minegrow.app'),
+  ('support_phone', '+91 90000 00000'),
+  ('terms_url', 'https://minegrow.app/terms'),
+  ('privacy_url', 'https://minegrow.app/privacy'),
+  ('risk_disclosure', 'Mining investment returns depend on active plan terms, approved deposits, and wallet eligibility rules.')
+ON CONFLICT (key) DO NOTHING;
 
 -- 2. Create 'admins' table
 CREATE TABLE IF NOT EXISTS admins (
@@ -39,15 +59,17 @@ CREATE TABLE IF NOT EXISTS investment_plan (
     lock_days INTEGER NOT NULL DEFAULT 90,
     roi_withdraw_days INTEGER NOT NULL DEFAULT 30,
     is_active BOOLEAN DEFAULT true NOT NULL,
+    image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Seed plan metadata (Starter, Silver, Gold Plans)
-INSERT INTO investment_plan (id, plan_name, min_amount, max_amount, daily_roi_pct, lock_days, roi_withdraw_days, is_active)
+INSERT INTO investment_plan (id, plan_name, min_amount, max_amount, daily_roi_pct, lock_days, roi_withdraw_days, is_active, image_url)
 VALUES 
-(1, 'Starter Plan', 1000.00, 10000.00, 1.00, 90, 30, true),
-(2, 'Silver Plan', 10001.00, 50000.00, 1.20, 90, 30, true),
-(3, 'Gold Plan', 50001.00, 500000.00, 1.50, 90, 30, true)
+(1, 'Starter Plan', 1000.00, 10000.00, 1.00, 90, 30, true, 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iMTAwJSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMSIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzA2NGU0MCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzExMTgxMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiByeD0iMTYiIGZpbGw9InVybCgjZzIpIi8+PGNpcmNsZSBjeD0iMzUwIiBjeT0iNTAiIHI9IjgwIiBmaWxsPSIjMTBkOTgxIiBmaWxsLW9wYWNpdHk9IjAuMDUiIGZpbHRlcj0iYmx1cigyMHB4KSIvPjxwYXRoIGQ9Ik0wIDE1MCBRIDEwMCAxMTAgMjAwIDE1MCBUIDQwMCAxNzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzEwZDk4MSIgc3Ryb2tlLW9wYWNpdHk9IjAuMTUiIHN0cm9rZS13aWR0aD0iMiIvPjxwYXRoIGQ9Ik0wIDE3MCBRIDEwMCAxMzAgMjAwIDE3MCBUIDQwMCAxOTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzEwZDk4MSIgc3Ryb2tlLW9wYWNpdHk9IjAuMDgiIHN0cm9rZS13aWR0aD0iMS41Ii8+PC9zdmc+'),
+(2, 'Silver Plan', 10001.00, 50000.00, 1.20, 90, 30, true, 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iMTAwJSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMiIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzFmMjkzNyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzExMTgxMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiByeD0iMTYiIGZpbGw9InVybCgjZzIpIi8+PGNpcmNsZSBjeD0iMzUwIiBjeT0iNTAiIHI9IjgwIiBmaWxsPSIjMzg4MmY2IiBmaWxsLW9wYWNpdHk9IjAuMDUiIGZpbHRlcj0iYmx1cigyMHB4KSIvPjxwYXRoIGQ9Ik0tNTAgMTAwIEw0NTAgMjAwIE0tNTAgMTIwIEw0NTAgMjIwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzOGIyZjYiIHN0cm9rZS1vcGFjaXR5PSIwLjE1IiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4='),
+(3, 'Gold Plan', 50001.00, 500000.00, 1.50, 90, 30, true, 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iMTAwJSI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnMyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzc4M2UwOCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzExMTgxMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjUwIiByeD0iMTYiIGZpbGw9InVybCgjZzMpIi8+PGNpcmNsZSBjeD0iMzUwIiBjeT0iNTAiIHI9IjgwIiBmaWxsPSIjZjViMDVjIiBmaWxsLW9wYWNpdHk9IjAuMDgiIGZpbHRlcj0iYmx1cigyMHB4KSIvPjxwYXRoIGQ9Ik0yMDAgMCBMMjAwIDI1MCBNMTAwIDEyNSBMMzAwIDEyNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZjViMDVjIiBzdHJva2Utb3BhY2l0eT0iMC4xIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxwYXRoIGQ9Ik0wIDUwIEw0MDAgMjAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmNWIwNWMiIHN0cm9rZS1vcGFjaXR5PSIwLjEzIiBzdHJva2Utd2lkdGg9IjIiLz48L3N2Zz4=')
 ON CONFLICT (id) DO UPDATE SET
   plan_name = EXCLUDED.plan_name,
   min_amount = EXCLUDED.min_amount,
@@ -55,7 +77,8 @@ ON CONFLICT (id) DO UPDATE SET
   daily_roi_pct = EXCLUDED.daily_roi_pct,
   lock_days = EXCLUDED.lock_days,
   roi_withdraw_days = EXCLUDED.roi_withdraw_days,
-  is_active = EXCLUDED.is_active;
+  is_active = EXCLUDED.is_active,
+  image_url = EXCLUDED.image_url;
 
 -- 4. Create 'investments' table
 CREATE TABLE IF NOT EXISTS investments (
@@ -157,6 +180,7 @@ CREATE TABLE IF NOT EXISTS kyc_documents (
     status VARCHAR(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
     reviewed_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMP WITH TIME ZONE,
+    admin_notes TEXT,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -365,5 +389,126 @@ BEGIN
   -- Insert audit log
   INSERT INTO audit_logs (actor_type, actor_id, target_user_id, action, reference_id, metadata, created_at)
   VALUES ('admin', p_admin_id, v_user_id, 'APPROVE_WITHDRAWAL', p_withdrawal_id, json_build_object('amount', v_amount, 'type', v_type), NOW());
+END;
+$$;
+
+-- RPC 3: adjust_user_wallet
+CREATE OR REPLACE FUNCTION adjust_user_wallet(
+  p_admin_id INTEGER,
+  p_user_id INTEGER,
+  p_wallet_type VARCHAR(20),
+  p_direction VARCHAR(10),
+  p_amount DECIMAL,
+  p_reason TEXT,
+  p_ip_address TEXT DEFAULT NULL
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_wallet wallets%ROWTYPE;
+  v_current_balance DECIMAL;
+  v_next_balance DECIMAL;
+  v_ledger_id INTEGER;
+BEGIN
+  IF p_wallet_type NOT IN ('roi', 'principal') THEN
+    RAISE EXCEPTION 'Invalid wallet type';
+  END IF;
+
+  IF p_direction NOT IN ('credit', 'debit') THEN
+    RAISE EXCEPTION 'Invalid wallet adjustment direction';
+  END IF;
+
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RAISE EXCEPTION 'Wallet adjustment amount must be positive';
+  END IF;
+
+  SELECT * INTO v_wallet
+  FROM wallets
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Wallet not found for user';
+  END IF;
+
+  v_current_balance := CASE
+    WHEN p_wallet_type = 'roi' THEN v_wallet.roi_balance
+    ELSE v_wallet.principal_balance
+  END;
+
+  v_next_balance := CASE
+    WHEN p_direction = 'credit' THEN v_current_balance + p_amount
+    ELSE v_current_balance - p_amount
+  END;
+
+  IF v_next_balance < 0 THEN
+    RAISE EXCEPTION 'Insufficient wallet balance for debit adjustment';
+  END IF;
+
+  UPDATE wallets
+  SET roi_balance = CASE
+        WHEN p_wallet_type = 'roi' THEN v_next_balance
+        ELSE roi_balance
+      END,
+      principal_balance = CASE
+        WHEN p_wallet_type = 'principal' THEN v_next_balance
+        ELSE principal_balance
+      END,
+      updated_at = NOW()
+  WHERE user_id = p_user_id
+  RETURNING * INTO v_wallet;
+
+  INSERT INTO wallet_ledger (
+    user_id,
+    wallet_type,
+    txn_type,
+    amount,
+    direction,
+    reference_type,
+    note,
+    balance_after
+  )
+  VALUES (
+    p_user_id,
+    p_wallet_type,
+    'admin_adjustment',
+    p_amount,
+    p_direction,
+    'admin',
+    p_reason,
+    v_next_balance
+  )
+  RETURNING id INTO v_ledger_id;
+
+  INSERT INTO audit_logs (
+    actor_type,
+    actor_id,
+    target_user_id,
+    action,
+    reference_id,
+    metadata,
+    ip_address,
+    created_at
+  )
+  VALUES (
+    'admin',
+    p_admin_id,
+    p_user_id,
+    'ADJUST_USER_WALLET',
+    v_ledger_id,
+    json_build_object(
+      'walletType', p_wallet_type,
+      'direction', p_direction,
+      'amount', p_amount,
+      'reason', p_reason,
+      'balanceBefore', v_current_balance,
+      'balanceAfter', v_next_balance
+    ),
+    p_ip_address,
+    NOW()
+  );
+
+  RETURN jsonb_build_object(
+    'wallet', to_jsonb(v_wallet),
+    'ledgerId', v_ledger_id
+  );
 END;
 $$;

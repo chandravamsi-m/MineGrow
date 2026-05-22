@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
-  Loader2,
   Calendar,
 } from 'lucide-react';
 
@@ -33,7 +32,7 @@ export const LedgerViewer: React.FC = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const limit = 20;
+  const limit = 5;
 
   const fetchLedger = async () => {
     try {
@@ -43,8 +42,8 @@ export const LedgerViewer: React.FC = () => {
       const response = await api.get<any>(`admin/reports/ledger?page=${page}&limit=${limit}`);
       if (response.success && response.data) {
         // Backend returns: { data: ledger[], pagination: { page, limit, total, totalPages } }
-        const ledgerData = response.data.data || [];
-        const paginationMeta = response.data.pagination || {};
+        const ledgerData = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        const paginationMeta = response.pagination || response.data.pagination || {};
         setEntries(ledgerData);
         setTotalCount(paginationMeta.total || 0);
       } else {
@@ -79,7 +78,90 @@ export const LedgerViewer: React.FC = () => {
 
       {/* Main Ledger Table */}
       <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto custom-scrollbar">
+        {/* Mobile View: Cards stack */}
+        <div className="block sm:hidden divide-y divide-slate-800/60 text-sm">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, idx) => (
+              <div key={idx} className="p-4 space-y-3 animate-pulse">
+                <div className="flex justify-between">
+                  <div className="h-4 bg-slate-800 rounded w-12"></div>
+                  <div className="h-5 bg-slate-800 rounded w-16"></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3.5 bg-slate-800/60 rounded w-3/4"></div>
+                  <div className="h-3 bg-slate-800/60 rounded w-1/2"></div>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <div className="h-3.5 bg-slate-800/40 rounded w-20"></div>
+                  <div className="h-5 bg-slate-800 rounded w-20"></div>
+                </div>
+              </div>
+            ))
+          ) : entries.length === 0 ? (
+            <div className="p-12 text-center text-slate-500">
+              No ledger transactions matching books found.
+            </div>
+          ) : (
+            entries.map((entry) => {
+              const isZeroAmount = Number(entry.amount) === 0;
+              const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
+              return (
+                <div key={entry.id} className="p-4 space-y-3 hover:bg-slate-900/10 transition-colors">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-xs text-indigo-400 font-semibold">#{entry.id}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider ${
+                      isZeroAmount
+                        ? 'bg-slate-500/10 text-slate-400'
+                        : entry.transaction_type === 'deposit'
+                        ? 'bg-blue-500/10 text-blue-400'
+                        : entry.transaction_type === 'roi'
+                        ? 'bg-amber-500/10 text-amber-400'
+                        : entry.transaction_type === 'withdrawal'
+                        ? 'bg-rose-500/10 text-rose-400'
+                        : 'bg-purple-500/10 text-purple-400'
+                    }`}>
+                      {isZeroAmount ? 'system' : entry.transaction_type.replace('_', ' ')}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <div className="text-xs text-slate-400 flex items-center space-x-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{new Date(entry.created_at).toLocaleString()}</span>
+                    </div>
+                    <div className="font-semibold text-slate-200 text-sm">
+                      {entry.users?.full_name || 'System Auto-Engine'}
+                    </div>
+                    <p className="text-slate-350 text-xs leading-relaxed">{entry.description}</p>
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-800/40">
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Audited Amount</span>
+                    <span className={`font-bold text-base flex items-center ${
+                      isZeroAmount
+                        ? 'text-slate-400'
+                        : isCredit
+                        ? 'text-emerald-400'
+                        : 'text-rose-400'
+                    }`}>
+                      {!isZeroAmount && (
+                        isCredit ? (
+                          <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
+                        ) : (
+                          <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                        )
+                      )}
+                      <span>₹{entry.amount.toLocaleString()}</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop/Tablet View: Table layout */}
+        <div className="hidden sm:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800 bg-slate-950/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -93,14 +175,16 @@ export const LedgerViewer: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-sm">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center space-y-3">
-                      <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                      <span>Retrieving audit books...</span>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={idx} className="animate-pulse border-b border-slate-800/40 h-16 align-middle">
+                    <td className="p-4 pl-6"><div className="h-4 bg-slate-800 rounded w-6"></div></td>
+                    <td className="p-4"><div className="h-4 bg-slate-800 rounded w-20"></div></td>
+                    <td className="p-4"><div className="h-4 bg-slate-800 rounded w-24"></div></td>
+                    <td className="p-4"><div className="h-4 bg-slate-800 rounded w-48"></div></td>
+                    <td className="p-4"><div className="h-5 bg-slate-800 rounded w-16"></div></td>
+                    <td className="p-4 pr-6 text-right"><div className="h-4 bg-slate-800 rounded w-16 ml-auto"></div></td>
+                  </tr>
+                ))
               ) : entries.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-12 text-center text-slate-500">
@@ -109,10 +193,11 @@ export const LedgerViewer: React.FC = () => {
                 </tr>
               ) : (
                 entries.map((entry) => {
+                  const isZeroAmount = Number(entry.amount) === 0;
                   const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
                   
                   return (
-                    <tr key={entry.id} className="hover:bg-slate-900/30 transition-colors duration-250">
+                    <tr key={entry.id} className="hover:bg-slate-900/30 transition-colors duration-250 h-16 align-middle">
                       <td className="p-4 pl-6 font-mono text-xs text-indigo-400 font-semibold">#{entry.id}</td>
                       <td className="p-4 text-slate-400 text-xs whitespace-nowrap">
                         <div className="flex items-center space-x-1.5">
@@ -124,19 +209,15 @@ export const LedgerViewer: React.FC = () => {
                         <div className="font-semibold text-slate-200">
                           {entry.users?.full_name || 'System Auto-Engine'}
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5 font-mono">
-                          Client: #{entry.user_id}
-                        </div>
                       </td>
                       <td className="p-4">
                         <div className="text-slate-300 text-xs leading-normal">{entry.description}</div>
-                        {entry.reference_id && (
-                          <span className="text-[10px] text-indigo-400 font-medium">Reference Ref: #{entry.reference_id}</span>
-                        )}
                       </td>
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
-                          entry.transaction_type === 'deposit'
+                          isZeroAmount
+                            ? 'bg-slate-500/10 text-slate-400'
+                            : entry.transaction_type === 'deposit'
                             ? 'bg-blue-500/10 text-blue-400'
                             : entry.transaction_type === 'roi'
                             ? 'bg-amber-500/10 text-amber-400'
@@ -144,17 +225,23 @@ export const LedgerViewer: React.FC = () => {
                             ? 'bg-rose-500/10 text-rose-400'
                             : 'bg-purple-500/10 text-purple-400'
                         }`}>
-                          {entry.transaction_type.replace('_', ' ')}
+                          {isZeroAmount ? 'system' : entry.transaction_type.replace('_', ' ')}
                         </span>
                       </td>
                       <td className={`p-4 pr-6 text-right font-bold text-base whitespace-nowrap ${
-                        isCredit ? 'text-emerald-400' : 'text-rose-400'
+                        isZeroAmount
+                          ? 'text-slate-400'
+                          : isCredit
+                          ? 'text-emerald-400'
+                          : 'text-rose-400'
                       }`}>
                         <div className="flex items-center justify-end">
-                          {isCredit ? (
-                            <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
-                          ) : (
-                            <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                          {!isZeroAmount && (
+                            isCredit ? (
+                              <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
+                            ) : (
+                              <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                            )
                           )}
                           <span>₹{entry.amount.toLocaleString()}</span>
                         </div>

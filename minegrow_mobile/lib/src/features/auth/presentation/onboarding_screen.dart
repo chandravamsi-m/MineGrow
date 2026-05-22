@@ -35,53 +35,44 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final email = _emailController.text.trim();
     final address = _addressController.text.trim();
 
+    // ── Validate first, outside setState ────────────────────────────────────
+    String? validationError;
+    if (name.isEmpty || name.length < 2) {
+      validationError = 'Enter your full name to proceed.';
+    } else if (!RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,4}$').hasMatch(
+      email,
+    )) {
+      validationError = 'Enter a valid email address.';
+    } else if (address.length < 4) {
+      validationError = 'Enter a valid residential address.';
+    }
+
+    if (validationError != null) {
+      setState(() => _errorText = validationError);
+      return;
+    }
+
+    // ── Submit ───────────────────────────────────────────────────────────────
     setState(() {
-      if (name.isEmpty || name.length < 2) {
-        _errorText = 'Enter your full name to proceed.';
-        return;
-      }
-
-      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-      if (email.isEmpty || !emailRegex.hasMatch(email)) {
-        _errorText = 'Enter a valid email address.';
-        return;
-      }
-
-      if (address.isEmpty || address.length < 4) {
-        _errorText = 'Enter a valid residential address.';
-        return;
-      }
-
       _errorText = null;
       _isSubmitting = true;
     });
 
-    if (_errorText != null) {
-      setState(() => _isSubmitting = false);
-      return;
-    }
-
     try {
-      final auth = ref.read(authRepositoryProvider);
-      await auth.onboardStep1(
-        fullName: name,
-        email: email,
-        address: address,
-      );
-
-      if (mounted) {
-        context.go(AppRoutes.dashboard);
-      }
+      await ref.read(authRepositoryProvider).onboardStep1(
+            fullName: name,
+            email: email,
+            address: address,
+          );
+      if (mounted) context.go(AppRoutes.dashboard);
     } on ApiException catch (error) {
-      setState(() => _errorText = error.message);
+      if (mounted) setState(() => _errorText = error.message);
     } catch (_) {
-      setState(() {
-        _errorText = 'Could not save profile. Check your connection.';
-      });
-    } finally {
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        setState(() => _errorText = 'Could not save profile. Check your connection.');
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 

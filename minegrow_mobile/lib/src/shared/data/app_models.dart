@@ -62,6 +62,17 @@ class InvestmentPlan {
 
   String get lockPeriod => '$lockDays Days Lock';
 
+  Color get planColor => _planColor(id);
+
+  static Color _planColor(int id) {
+    return switch (id) {
+      1 => const Color(0xFFF59E0B), // brandOrange — Starter
+      2 => const Color(0xFFC0C0C0), // silver
+      3 => const Color(0xFFFDBA2D), // brandGold — Gold
+      _ => const Color(0xFFFDBA2D),
+    };
+  }
+
   factory InvestmentPlan.fromJson(Object? json) {
     final map = json as Map<String, dynamic>;
     final id = _intValue(map['id']);
@@ -137,6 +148,7 @@ class InvestmentRecord {
   const InvestmentRecord({
     required this.id,
     required this.planId,
+    this.planName,
     required this.amount,
     required this.dailyRoiPct,
     required this.lockDays,
@@ -146,6 +158,11 @@ class InvestmentRecord {
 
   final int id;
   final int planId;
+
+  /// Plan name as returned by the API (e.g. "Gold Plan"). May be null if the
+  /// investments endpoint does not include plan details — fall back to the
+  /// plans list cross-reference in that case.
+  final String? planName;
   final num amount;
   final num dailyRoiPct;
   final int lockDays;
@@ -159,6 +176,7 @@ class InvestmentRecord {
     return InvestmentRecord(
       id: _intValue(map['id']),
       planId: _intValue(map['plan_id']),
+      planName: (map['plan_name'] ?? map['planName'])?.toString(),
       amount: _numValue(map['amount']),
       dailyRoiPct: _numValue(map['daily_roi_pct']),
       lockDays: _intValue(map['lock_days']),
@@ -271,6 +289,91 @@ class WithdrawalEligibility {
   }
 }
 
+/// Per-category notification preferences fetched from the user profile.
+/// Used as default values when the device has no locally stored preference.
+class NotificationPreferences {
+  const NotificationPreferences({
+    this.push = true,
+    this.investments = true,
+    this.wallet = true,
+    this.promotions = false,
+  });
+
+  final bool push;
+  final bool investments;
+  final bool wallet;
+  final bool promotions;
+
+  static const defaults = NotificationPreferences();
+
+  factory NotificationPreferences.fromJson(Object? json) {
+    if (json == null) return defaults;
+    final map = (json as Map?)?.cast<String, dynamic>() ?? {};
+    return NotificationPreferences(
+      push: map['push'] != false,
+      investments: map['investments'] != false,
+      wallet: map['wallet'] != false,
+      promotions: map['promotions'] == true,
+    );
+  }
+
+  NotificationPreferences copyWith({
+    bool? push,
+    bool? investments,
+    bool? wallet,
+    bool? promotions,
+  }) {
+    return NotificationPreferences(
+      push: push ?? this.push,
+      investments: investments ?? this.investments,
+      wallet: wallet ?? this.wallet,
+      promotions: promotions ?? this.promotions,
+    );
+  }
+
+  Map<String, bool> toJson() {
+    return {
+      'push': push,
+      'investments': investments,
+      'wallet': wallet,
+      'promotions': promotions,
+    };
+  }
+}
+
+class KycDocument {
+  const KycDocument({
+    required this.id,
+    required this.docType,
+    required this.status,
+    this.fileUrl,
+    this.createdAt,
+  });
+
+  final int id;
+  final String docType;
+  final String status;
+  final String? fileUrl;
+  final String? createdAt;
+
+  factory KycDocument.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return KycDocument(
+      id: _intValue(map['id']),
+      docType: _stringValue(map['doc_type'] ?? map['docType']),
+      status: _stringValue(map['status'], fallback: 'pending'),
+      fileUrl:
+          (map['doc_url'] ??
+                  map['document_url'] ??
+                  map['file_url'] ??
+                  map['fileUrl'] ??
+                  map['url'])
+              ?.toString(),
+      createdAt: (map['created_at'] ?? map['createdAt'])?.toString(),
+    );
+  }
+}
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -280,6 +383,7 @@ class UserProfile {
     this.address,
     required this.status,
     required this.kycVerified,
+    this.notificationPreferences = NotificationPreferences.defaults,
   });
 
   final int id;
@@ -289,6 +393,7 @@ class UserProfile {
   final String? address;
   final String status;
   final bool kycVerified;
+  final NotificationPreferences notificationPreferences;
 
   factory UserProfile.fromJson(Object? json) {
     final map = json as Map<String, dynamic>;
@@ -300,6 +405,9 @@ class UserProfile {
       address: map['address']?.toString(),
       status: _stringValue(map['status'], fallback: 'active'),
       kycVerified: map['kyc_verified'] == true,
+      notificationPreferences: NotificationPreferences.fromJson(
+        map['notification_preferences'] ?? map['notificationPreferences'],
+      ),
     );
   }
 }
@@ -331,6 +439,96 @@ class AuthSession {
       refreshToken: _stringValue(map['refreshToken']),
       user: map['user'] == null ? null : UserProfile.fromJson(map['user']),
       isNewUser: map['isNewUser'] == true,
+    );
+  }
+}
+
+class BankAccount {
+  const BankAccount({
+    required this.id,
+    required this.accountType,
+    required this.bankName,
+    required this.accountNumber,
+    required this.ifscCode,
+    this.accountHolder,
+    this.upiId,
+    this.isPrimary = false,
+  });
+
+  final int id;
+  final String accountType;
+  final String bankName;
+  final String accountNumber;
+  final String ifscCode;
+  final String? accountHolder;
+  final String? upiId;
+  final bool isPrimary;
+
+  bool get isUpi => accountType == 'upi' || (upiId?.isNotEmpty ?? false);
+  bool get isBank => !isUpi;
+
+  String get maskedNumber {
+    if (accountNumber.length <= 4) return accountNumber;
+    return '•••• ${accountNumber.substring(accountNumber.length - 4)}';
+  }
+
+  factory BankAccount.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return BankAccount(
+      id: _intValue(map['id']),
+      accountType: _stringValue(
+        map['account_type'] ?? map['accountType'],
+        fallback: 'bank',
+      ),
+      bankName: _stringValue(
+        map['bank_name'] ?? map['bankName'],
+        fallback: 'Bank',
+      ),
+      accountNumber: _stringValue(
+        map['account_number'] ?? map['accountNumber'],
+      ),
+      ifscCode: _stringValue(map['ifsc_code'] ?? map['ifscCode']),
+      accountHolder: (map['account_holder'] ?? map['accountHolder'])
+          ?.toString(),
+      upiId: (map['upi_id'] ?? map['upiId'])?.toString(),
+      isPrimary:
+          map['is_primary'] == true ||
+          map['isPrimary'] == true ||
+          map['is_default'] == true ||
+          map['isDefault'] == true,
+    );
+  }
+}
+
+class ApiNotification {
+  const ApiNotification({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.type,
+    required this.createdAt,
+    required this.isRead,
+  });
+
+  final int id;
+  final String title;
+  final String message;
+  final String type;
+  final String createdAt;
+  final bool isRead;
+
+  factory ApiNotification.fromJson(Object? json) {
+    final map = json as Map<String, dynamic>;
+    return ApiNotification(
+      id: _intValue(map['id']),
+      title: _stringValue(map['title']),
+      message: _stringValue(map['message'] ?? map['body']),
+      type: _stringValue(
+        map['type'] ?? map['notification_type'],
+        fallback: 'general',
+      ),
+      createdAt: _stringValue(map['created_at'] ?? map['createdAt']),
+      isRead: map['is_read'] == true || map['isRead'] == true,
     );
   }
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   LayoutDashboard,
   Users as UsersIcon,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Sparkles,
   X,
+  Settings,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,6 +23,19 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpen, onClose }) => {
   const { admin, logout } = useAuth();
+  const confirm = useConfirm();
+
+  const handleLogout = () => {
+    confirm({
+      title: 'Terminate Session',
+      message: 'Are you sure you want to end your administrator session? You will need to log back in to manage users and parameters.',
+      confirmText: 'Logout',
+      type: 'danger',
+      onConfirm: async () => {
+        await logout();
+      }
+    });
+  };
 
   const navigationItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
@@ -29,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
     { id: 'withdrawals', name: 'Withdrawal Flow', icon: ArrowUpCircle },
     { id: 'plans', name: 'Investment Plans', icon: Sliders },
     { id: 'ledger', name: 'System Ledger', icon: BookOpen },
+    { id: 'settings', name: 'Settings', icon: Settings },
   ];
 
   return (
@@ -105,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
         </div>
         
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { api } from '../services/api';
 
 export interface AdminUser {
@@ -18,23 +18,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  const [admin, setAdmin] = useState<AdminUser | null>(() => {
     const token = localStorage.getItem('admin_access_token');
     const storedUser = localStorage.getItem('admin_user');
     if (token && storedUser) {
       try {
-        setAdmin(JSON.parse(storedUser));
+        return JSON.parse(storedUser);
       } catch {
         // Clear corrupt storage
         localStorage.removeItem('admin_access_token');
         localStorage.removeItem('admin_user');
       }
     }
-    setLoading(false);
-  }, []);
+    return null;
+  });
+  const [loading, setLoading] = useState(false);
 
   const login = async (email: string, password: string) => {
     setLoading(true);

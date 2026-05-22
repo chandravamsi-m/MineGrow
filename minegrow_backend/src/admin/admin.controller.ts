@@ -10,20 +10,42 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UpdateUserStatusDto, KycReviewDto } from './dto/admin.dto';
+import {
+  UpdateUserStatusDto,
+  KycReviewDto,
+  AdjustWalletDto,
+} from './dto/admin.dto';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly uploadsService: UploadsService,
+  ) {}
+
+  @Get('files/view')
+  async viewFile(
+    @Query('path') path: string,
+    @Query('json') json: string,
+    @Res() res: Response,
+  ) {
+    const signedUrl = await this.uploadsService.getSignedUrl(path);
+    if (json === 'true') {
+      return res.json({ signedUrl });
+    }
+    return res.redirect(302, signedUrl);
+  }
 
   @Get('users')
   async getUsers(
@@ -77,6 +99,22 @@ export class AdminController {
     return this.adminService.rejectUserKyc(admin.id, parseInt(id, 10), dto, ip);
   }
 
+  @Patch('users/:id/wallet')
+  async adjustUserWallet(
+    @CurrentUser() admin: any,
+    @Param('id') id: string,
+    @Body() dto: AdjustWalletDto,
+    @Req() req: any,
+  ) {
+    const ip = req.ip || req.socket.remoteAddress;
+    return this.adminService.adjustUserWallet(
+      admin.id,
+      parseInt(id, 10),
+      dto,
+      ip,
+    );
+  }
+
   @Get('reports/dashboard')
   async getDashboardStats() {
     return this.adminService.getDashboardStats();
@@ -90,5 +128,21 @@ export class AdminController {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 50;
     return this.adminService.getSystemLedger(pageNum, limitNum);
+  }
+
+  @Get('app-config')
+  async getAppConfigs() {
+    return this.adminService.getAppConfigs();
+  }
+
+  @Patch('app-config/:key')
+  async updateAppConfig(
+    @CurrentUser() admin: any,
+    @Param('key') key: string,
+    @Body('value') value: string,
+    @Req() req: any,
+  ) {
+    const ip = req.ip || req.socket.remoteAddress;
+    return this.adminService.updateAppConfig(admin.id, key, value, ip);
   }
 }

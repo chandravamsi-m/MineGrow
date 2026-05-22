@@ -8,7 +8,12 @@ import {
 import { SupabaseClientService } from '../config/supabase.client';
 import { AuditService } from '../audit/audit.service';
 import { FcmService } from '../notifications/fcm.service';
-import { UpdateUserStatusDto, KycReviewDto } from './dto/admin.dto';
+import { AppConfigService } from '../app-config/app-config.service';
+import {
+  UpdateUserStatusDto,
+  KycReviewDto,
+  AdjustWalletDto,
+} from './dto/admin.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
 
 @Injectable()
@@ -19,6 +24,7 @@ export class AdminService {
     private readonly supabaseService: SupabaseClientService,
     private readonly auditService: AuditService,
     private readonly fcmService: FcmService,
+    private readonly appConfigService: AppConfigService,
   ) {}
 
   async getUsers(search?: string, status?: string) {
@@ -53,7 +59,7 @@ export class AdminService {
     // 1. Profile
     const { data: profile } = await supabase
       .from('users')
-      .select('id, full_name, mobile, email, status, kyc_verified, created_at')
+      .select('id, full_name, mobile, email, status, kyc_verified, address, notification_preferences, created_at')
       .eq('id', userId)
       .single();
     if (!profile) {
@@ -149,6 +155,21 @@ export class AdminService {
   async verifyUserKyc(adminId: number, userId: number, ipAddress?: string) {
     const supabase = this.supabaseService.getClient();
 
+    // Check if there are any pending KYC documents
+    const { data: pendingDocs, error: checkError } = await supabase
+      .from('kyc_documents')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+
+    if (checkError) {
+      throw new InternalServerErrorException('Error checking KYC documents status');
+    }
+
+    if (!pendingDocs || pendingDocs.length === 0) {
+      throw new BadRequestException('No pending KYC document submissions found for this user');
+    }
+
     // 1. Approve all pending KYC scanned documents
     const { error: kycError } = await supabase
       .from('kyc_documents')
@@ -209,6 +230,21 @@ export class AdminService {
   ) {
     const supabase = this.supabaseService.getClient();
 
+    // Check if there are any pending KYC documents
+    const { data: pendingDocs, error: checkError } = await supabase
+      .from('kyc_documents')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+
+    if (checkError) {
+      throw new InternalServerErrorException('Error checking KYC documents status');
+    }
+
+    if (!pendingDocs || pendingDocs.length === 0) {
+      throw new BadRequestException('No pending KYC document submissions found for this user');
+    }
+
     // 1. Reject KYC documents
     const { error: kycError } = await supabase
       .from('kyc_documents')
@@ -253,6 +289,50 @@ export class AdminService {
     );
 
     return { message: 'KYC submission rejected successfully' };
+  }
+
+  async adjustUserWallet(
+    adminId: number,
+    userId: number,
+    dto: AdjustWalletDto,
+    ipAddress?: string,
+  ) {
+    const amount = Number(dto.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Wallet adjustment amount must be positive');
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase.rpc('adjust_user_wallet', {
+      p_admin_id: adminId,
+      p_user_id: userId,
+      p_wallet_type: dto.walletType,
+      p_direction: dto.direction,
+      p_amount: amount,
+      p_reason: dto.reason,
+      p_ip_address: ipAddress || null,
+    });
+
+    if (error) {
+      const message = error.message || 'Error adjusting wallet balance';
+      this.logger.error('Failed to adjust wallet balance:', error);
+
+      if (message.toLowerCase().includes('wallet not found')) {
+        throw new NotFoundException('User wallet not found');
+      }
+
+      if (
+        message.toLowerCase().includes('insufficient') ||
+        message.toLowerCase().includes('invalid') ||
+        message.toLowerCase().includes('positive')
+      ) {
+        throw new BadRequestException(message);
+      }
+
+      throw new InternalServerErrorException('Error adjusting wallet balance');
+    }
+
+    return data;
   }
 
   /**
@@ -333,12 +413,13 @@ export class AdminService {
       count,
       error,
     } = await supabase
-      .from('wallet_ledger')
-      .select('*, users(full_name, mobile)', { count: 'exact' })
+      .from('audit_logs')
+      .select('*, users!target_user_id(full_name, mobile)', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (error) {
+      this.logger.error('Error fetching system audit ledger logs:', error);
       throw new InternalServerErrorException(
         'Error loading system financial ledger',
       );
@@ -347,8 +428,99 @@ export class AdminService {
     const total = count || 0;
     const totalPages = Math.ceil(total / limit);
 
+    const ledgerItems = ledger || [];
+
+    // 1. Gather all unique dates of daily ROI calculation routines in the current page
+    const roiDates = Array.from(
+      new Set(
+        ledgerItems
+          .filter(
+            (entry: any) =>
+              entry.action === 'EXECUTE_DAILY_ROI_ROUTINE' &&
+              entry.metadata?.creditedDate,
+          )
+          .map((entry: any) => entry.metadata.creditedDate),
+      ),
+    );
+
+    // 2. Fetch total ROI sums grouped by credited_date in a single round-trip
+    const dailySums: Record<string, number> = {};
+    if (roiDates.length > 0) {
+      const { data: roiHistory, error: historyError } = await supabase
+        .from('roi_history')
+        .select('roi_amount, credited_date')
+        .in('credited_date', roiDates);
+
+      if (!historyError && roiHistory) {
+        for (const row of roiHistory) {
+          const d = row.credited_date;
+          const amt = Number(row.roi_amount) || 0;
+          dailySums[d] = (dailySums[d] || 0) + amt;
+        }
+      }
+    }
+
+    const mappedLedger = ledgerItems.map((entry: any) => {
+      let transactionType:
+        | 'deposit'
+        | 'roi'
+        | 'withdrawal'
+        | 'principal_return' = 'deposit';
+      let description = '';
+
+      const action = entry.action;
+      const metadata = entry.metadata || {};
+      let amount = Number(metadata.amount) || 0;
+
+      if (action === 'APPROVE_DEPOSIT') {
+        transactionType = 'deposit';
+        description = `Approved deposit request of ₹${amount.toLocaleString()}`;
+      } else if (action === 'REJECT_DEPOSIT') {
+        transactionType = 'withdrawal';
+        description = `Rejected deposit request of ₹${amount.toLocaleString()}`;
+      } else if (action === 'APPROVE_WITHDRAWAL') {
+        transactionType = 'withdrawal';
+        description = `Approved withdrawal of ₹${amount.toLocaleString()}`;
+      } else if (action === 'REJECT_WITHDRAWAL') {
+        transactionType = 'deposit';
+        description = `Rejected withdrawal of ₹${amount.toLocaleString()}`;
+      } else if (action === 'COMPLETE_WITHDRAWAL') {
+        transactionType = 'withdrawal';
+        description = `Settled withdrawal payout of ₹${amount.toLocaleString()}`;
+      } else if (action === 'APPROVE_KYC_VERIFICATION') {
+        transactionType = 'deposit';
+        description = `Approved client KYC onboarding`;
+      } else if (action === 'REJECT_KYC_VERIFICATION') {
+        transactionType = 'withdrawal';
+        description = `Rejected client KYC onboarding`;
+      } else if (action === 'UPDATE_USER_STATUS') {
+        transactionType = 'deposit';
+        description = `Updated client account status`;
+      } else if (action === 'EXECUTE_DAILY_ROI_ROUTINE') {
+        transactionType = 'roi';
+        const creditedDate = metadata.creditedDate || '';
+        amount = dailySums[creditedDate] || 0;
+        const numCredits = metadata.result?.roi_credits_issued || 0;
+        description = `Daily ROI routine (${numCredits} credits)`;
+      } else {
+        transactionType = 'deposit';
+        description = `${action.replace(/_/g, ' ')}`;
+      }
+
+      return {
+        id: entry.id,
+        user_id: entry.target_user_id || entry.actor_id || 0,
+        amount: amount,
+        transaction_type: transactionType,
+        description: description,
+        reference_id: entry.reference_id,
+        created_at: entry.created_at,
+        users: entry.users,
+      };
+    });
+
     return {
-      data: ledger,
+      data: mappedLedger,
       pagination: {
         page,
         limit,
@@ -356,5 +528,49 @@ export class AdminService {
         totalPages,
       },
     };
+  }
+
+  async getAppConfigs() {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('key, value, updated_at')
+      .order('key');
+
+    if (error) {
+      if (error.code === 'PGRST205') {
+        this.logger.warn("Table 'app_config' not found in database. Serving default system settings. Please execute migration SQL.");
+        return [
+          { key: 'payment_upi_id', value: 'minegrow@upi', updated_at: new Date().toISOString() },
+          { key: 'otp_resend_delay', value: '30', updated_at: new Date().toISOString() }
+        ];
+      }
+      this.logger.error('Failed to fetch app configs:', error);
+      throw new InternalServerErrorException('Error loading system configs');
+    }
+    return data;
+  }
+
+  async updateAppConfig(
+    adminId: number,
+    key: string,
+    value: string,
+    ipAddress?: string,
+  ) {
+    // 1. Update DB & invalidate cache via AppConfigService
+    await this.appConfigService.updateVal(key, value);
+
+    // 2. Audit log
+    await this.auditService.log(
+      'admin',
+      adminId,
+      'UPDATE_CONFIG',
+      null,
+      null,
+      { key, value },
+      ipAddress,
+    );
+
+    return { success: true };
   }
 }
