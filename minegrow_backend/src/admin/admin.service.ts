@@ -155,6 +155,21 @@ export class AdminService {
   async verifyUserKyc(adminId: number, userId: number, ipAddress?: string) {
     const supabase = this.supabaseService.getClient();
 
+    // Check if there are any pending KYC documents
+    const { data: pendingDocs, error: checkError } = await supabase
+      .from('kyc_documents')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+
+    if (checkError) {
+      throw new InternalServerErrorException('Error checking KYC documents status');
+    }
+
+    if (!pendingDocs || pendingDocs.length === 0) {
+      throw new BadRequestException('No pending KYC document submissions found for this user');
+    }
+
     // 1. Approve all pending KYC scanned documents
     const { error: kycError } = await supabase
       .from('kyc_documents')
@@ -214,6 +229,21 @@ export class AdminService {
     ipAddress?: string,
   ) {
     const supabase = this.supabaseService.getClient();
+
+    // Check if there are any pending KYC documents
+    const { data: pendingDocs, error: checkError } = await supabase
+      .from('kyc_documents')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+
+    if (checkError) {
+      throw new InternalServerErrorException('Error checking KYC documents status');
+    }
+
+    if (!pendingDocs || pendingDocs.length === 0) {
+      throw new BadRequestException('No pending KYC document submissions found for this user');
+    }
 
     // 1. Reject KYC documents
     const { error: kycError } = await supabase

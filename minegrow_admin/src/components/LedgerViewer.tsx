@@ -103,13 +103,16 @@ export const LedgerViewer: React.FC = () => {
             </div>
           ) : (
             entries.map((entry) => {
+              const isZeroAmount = Number(entry.amount) === 0;
               const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
               return (
                 <div key={entry.id} className="p-4 space-y-3 hover:bg-slate-900/10 transition-colors">
                   <div className="flex justify-between items-center">
                     <span className="font-mono text-xs text-indigo-400 font-semibold">#{entry.id}</span>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider ${
-                      entry.transaction_type === 'deposit'
+                      isZeroAmount
+                        ? 'bg-slate-500/10 text-slate-400'
+                        : entry.transaction_type === 'deposit'
                         ? 'bg-blue-500/10 text-blue-400'
                         : entry.transaction_type === 'roi'
                         ? 'bg-amber-500/10 text-amber-400'
@@ -117,7 +120,7 @@ export const LedgerViewer: React.FC = () => {
                         ? 'bg-rose-500/10 text-rose-400'
                         : 'bg-purple-500/10 text-purple-400'
                     }`}>
-                      {entry.transaction_type.replace('_', ' ')}
+                      {isZeroAmount ? 'system' : entry.transaction_type.replace('_', ' ')}
                     </span>
                   </div>
                   
@@ -135,12 +138,18 @@ export const LedgerViewer: React.FC = () => {
                   <div className="flex justify-between items-center pt-2 border-t border-slate-800/40">
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Audited Amount</span>
                     <span className={`font-bold text-base flex items-center ${
-                      isCredit ? 'text-emerald-400' : 'text-rose-400'
+                      isZeroAmount
+                        ? 'text-slate-400'
+                        : isCredit
+                        ? 'text-emerald-400'
+                        : 'text-rose-400'
                     }`}>
-                      {isCredit ? (
-                        <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
-                      ) : (
-                        <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                      {!isZeroAmount && (
+                        isCredit ? (
+                          <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
+                        ) : (
+                          <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                        )
                       )}
                       <span>₹{entry.amount.toLocaleString()}</span>
                     </span>
@@ -184,6 +193,7 @@ export const LedgerViewer: React.FC = () => {
                 </tr>
               ) : (
                 entries.map((entry) => {
+                  const isZeroAmount = Number(entry.amount) === 0;
                   const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
                   
                   return (
@@ -205,7 +215,9 @@ export const LedgerViewer: React.FC = () => {
                       </td>
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
-                          entry.transaction_type === 'deposit'
+                          isZeroAmount
+                            ? 'bg-slate-500/10 text-slate-400'
+                            : entry.transaction_type === 'deposit'
                             ? 'bg-blue-500/10 text-blue-400'
                             : entry.transaction_type === 'roi'
                             ? 'bg-amber-500/10 text-amber-400'
@@ -213,17 +225,23 @@ export const LedgerViewer: React.FC = () => {
                             ? 'bg-rose-500/10 text-rose-400'
                             : 'bg-purple-500/10 text-purple-400'
                         }`}>
-                          {entry.transaction_type.replace('_', ' ')}
+                          {isZeroAmount ? 'system' : entry.transaction_type.replace('_', ' ')}
                         </span>
                       </td>
                       <td className={`p-4 pr-6 text-right font-bold text-base whitespace-nowrap ${
-                        isCredit ? 'text-emerald-400' : 'text-rose-400'
+                        isZeroAmount
+                          ? 'text-slate-400'
+                          : isCredit
+                          ? 'text-emerald-400'
+                          : 'text-rose-400'
                       }`}>
                         <div className="flex items-center justify-end">
-                          {isCredit ? (
-                            <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
-                          ) : (
-                            <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                          {!isZeroAmount && (
+                            isCredit ? (
+                              <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
+                            ) : (
+                              <ArrowUpRight className="w-4 h-4 mr-0.5 text-rose-500" />
+                            )
                           )}
                           <span>₹{entry.amount.toLocaleString()}</span>
                         </div>
