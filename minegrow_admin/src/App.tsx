@@ -124,7 +124,7 @@ const MainAppContent: React.FC = () => {
               disabled={loginLoading}
               className="w-full flex items-center justify-center space-x-2 py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl font-semibold text-xs tracking-wider transition-all duration-300 shadow-lg shadow-indigo-600/10 hover:scale-[1.02] cursor-pointer"
             >
-              <span>{loginLoading ? 'Authenticating access...' : 'Access Dashboard'}</span>
+              <span>{loginLoading ? 'Logging In...' : 'Login'}</span>
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
           </form>
