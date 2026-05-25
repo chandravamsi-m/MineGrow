@@ -13,16 +13,55 @@ import { Settings } from './components/Settings';
 import { Sparkles, Mail, Lock, ShieldAlert, ArrowRight, Eye, EyeOff, Menu } from 'lucide-react';
 
 
+const VALID_TABS = [
+  'dashboard',
+  'users',
+  'deposits',
+  'withdrawals',
+  'plans',
+  'ledger',
+  'settings',
+] as const;
+type Tab = (typeof VALID_TABS)[number];
+
+const readTabFromHash = (): Tab => {
+  const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[0];
+  if ((VALID_TABS as readonly string[]).includes(raw)) return raw as Tab;
+  // One-time migration from the previous localStorage-backed tab state so
+  // admins who were mid-task don't lose their place after this deploys.
+  const legacy = localStorage.getItem('minegrow_admin_active_tab');
+  localStorage.removeItem('minegrow_admin_active_tab');
+  if (legacy && (VALID_TABS as readonly string[]).includes(legacy)) return legacy as Tab;
+  return 'dashboard';
+};
+
 const MainAppContent: React.FC = () => {
   const { admin, login } = useAuth();
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('minegrow_admin_active_tab') || 'dashboard';
-  });
+  const [activeTab, setActiveTabState] = useState<Tab>(() => readTabFromHash());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Write tab → URL hash (creates a real history entry so browser back works).
+  const setActiveTab = (next: string) => {
+    const tab = (VALID_TABS as readonly string[]).includes(next)
+      ? (next as Tab)
+      : 'dashboard';
+    if (tab === activeTab) return;
+    window.location.hash = `#/${tab}`;
+    setActiveTabState(tab);
+    setIsSidebarOpen(false);
+  };
+
+  // Keep React state in sync with browser back/forward.
   useEffect(() => {
-    localStorage.setItem('minegrow_admin_active_tab', activeTab);
-  }, [activeTab]);
+    const onHashChange = () => setActiveTabState(readTabFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    // If no hash present on first render, replace it so the URL reflects state.
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', `#/${activeTab}`);
+    }
+    return () => window.removeEventListener('hashchange', onHashChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Login form states
   const [email, setEmail] = useState('');

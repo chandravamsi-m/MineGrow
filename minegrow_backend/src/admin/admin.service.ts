@@ -400,6 +400,34 @@ export class AdminService {
       'roi_amount',
     );
 
+    // Surface the most-recent ROI cron run so the admin dashboard can show
+    // a last-run timestamp next to the manual trigger.
+    const { data: lastRoiAudit } = await supabase
+      .from('audit_logs')
+      .select('id, action, actor_type, metadata, created_at')
+      .in('action', [
+        'EXECUTE_DAILY_ROI_ROUTINE',
+        'EXECUTE_DAILY_ROI_ROUTINE_FAILED',
+      ])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lastRoiRun = lastRoiAudit
+      ? {
+          ranAt: lastRoiAudit.created_at,
+          status:
+            lastRoiAudit.action === 'EXECUTE_DAILY_ROI_ROUTINE'
+              ? 'success'
+              : 'failed',
+          source: lastRoiAudit.actor_type === 'admin' ? 'manual' : 'cron',
+          creditedDate: lastRoiAudit.metadata?.creditedDate || null,
+          creditsIssued:
+            lastRoiAudit.metadata?.result?.roi_credits_issued ?? null,
+          auditId: lastRoiAudit.id,
+        }
+      : null;
+
     return {
       totalActiveUsers: activeUsers || 0,
       totalActiveInvestments: activeInvestments || 0,
@@ -409,6 +437,7 @@ export class AdminService {
       pendingWithdrawalRequestsCount: pendingWithdrawals || 0,
       activePrincipalLockSum: activeLockSum,
       totalDailyRoiDistributed: totalRoiDistributed,
+      lastRoiRun,
     };
   }
 

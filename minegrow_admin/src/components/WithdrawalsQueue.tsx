@@ -193,10 +193,27 @@ export const WithdrawalsQueue: React.FC = () => {
   };
 
   const triggerExportCsv = async () => {
+    // Bulk payout PII export requires a justification. The reason is recorded
+    // in the audit ledger alongside the admin id and filter set.
+    const reason = window.prompt(
+      `You are about to export ${statusFilter.toUpperCase()} withdrawals containing payout PII (bank/UPI details).\n\nEnter a reason for this export (min 5 characters). It will be recorded in the audit ledger.`,
+      '',
+    );
+    if (reason === null) return; // user cancelled
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      toast.error('Export reason must be at least 5 characters');
+      return;
+    }
+
     try {
-      const path = `admin/withdrawals/export?status=${statusFilter}&type=`;
-      const csvContent = await api.download(path);
-      
+      const params = new URLSearchParams({
+        status: statusFilter,
+        type: '',
+        reason: trimmed,
+      });
+      const csvContent = await api.download(`admin/withdrawals/export?${params.toString()}`);
+
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -205,7 +222,8 @@ export const WithdrawalsQueue: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success('Withdrawals list exported to CSV successfully');
+      URL.revokeObjectURL(url);
+      toast.success('Withdrawals exported. The reason has been logged in the audit ledger.');
     } catch (e: any) {
       toast.error(e.message || 'Error occurred exporting CSV ledger file');
     }
