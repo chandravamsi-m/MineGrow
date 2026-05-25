@@ -16,6 +16,8 @@ import {
   ArrowRight,
   Download,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface WithdrawalDetail {
@@ -37,6 +39,21 @@ interface WithdrawalDetail {
   } | null;
 }
 
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const PAGE_SIZE = 20;
+const initialPagination: PaginationState = {
+  page: 1,
+  limit: PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+};
+
 export const WithdrawalsQueue: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,16 +69,29 @@ export const WithdrawalsQueue: React.FC = () => {
   
   // Tab states: 'pending' | 'approved' | 'completed' | 'rejected'
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'completed' | 'rejected'>('pending');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>(initialPagination);
 
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const query = statusFilter ? `?status=${statusFilter}` : '';
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+      if (statusFilter) params.set('status', statusFilter);
+      const query = `?${params.toString()}`;
       const response = await api.get<any>(`admin/withdrawals${query}`);
       if (response.success && response.data) {
         setWithdrawals(response.data);
+        setPagination({
+          page: response.pagination?.page || page,
+          limit: response.pagination?.limit || PAGE_SIZE,
+          total: response.pagination?.total || response.data.length,
+          totalPages: response.pagination?.totalPages || 1,
+        });
       } else {
         throw new Error(response.message || 'Failed to fetch withdrawals queue');
       }
@@ -77,7 +107,7 @@ export const WithdrawalsQueue: React.FC = () => {
     setSelectedItem(null);
     setShowRejectForm(false);
     setRejectReason('');
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   const approveRequest = async (id: number) => {
     confirm({
@@ -208,7 +238,10 @@ export const WithdrawalsQueue: React.FC = () => {
       {/* Navigation tabs */}
       <div className="flex border-b border-slate-800 space-x-4 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap">
         <button
-          onClick={() => setStatusFilter('pending')}
+          onClick={() => {
+            setStatusFilter('pending');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'pending'
               ? 'border-indigo-500 text-indigo-400 font-bold'
@@ -218,7 +251,10 @@ export const WithdrawalsQueue: React.FC = () => {
           Pending Approvals
         </button>
         <button
-          onClick={() => setStatusFilter('approved')}
+          onClick={() => {
+            setStatusFilter('approved');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'approved'
               ? 'border-amber-500 text-amber-400 font-bold'
@@ -228,7 +264,10 @@ export const WithdrawalsQueue: React.FC = () => {
           Approved Transfers
         </button>
         <button
-          onClick={() => setStatusFilter('completed')}
+          onClick={() => {
+            setStatusFilter('completed');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'completed'
               ? 'border-emerald-500 text-emerald-400 font-bold'
@@ -238,7 +277,10 @@ export const WithdrawalsQueue: React.FC = () => {
           Completed Settlements
         </button>
         <button
-          onClick={() => setStatusFilter('rejected')}
+          onClick={() => {
+            setStatusFilter('rejected');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'rejected'
               ? 'border-rose-500 text-rose-400 font-bold'
@@ -438,6 +480,38 @@ export const WithdrawalsQueue: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {!loading && pagination.totalPages > 1 && (
+            <div className="p-4 bg-slate-950/40 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+              <span className="text-slate-500 font-semibold uppercase tracking-wider">
+                Showing {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} withdrawals
+              </span>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                  disabled={pagination.page === 1}
+                  className="p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all duration-300 cursor-pointer"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg font-bold text-slate-200">
+                  Page {pagination.page} of {pagination.totalPages}
+                </div>
+
+                <button
+                  onClick={() => setPage((current) => Math.min(current + 1, pagination.totalPages))}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all duration-300 cursor-pointer"
+                  title="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

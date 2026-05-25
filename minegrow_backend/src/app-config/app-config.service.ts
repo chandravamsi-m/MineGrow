@@ -79,7 +79,11 @@ export class AppConfigService {
   /**
    * Updates a single configuration key-value pair and invalidates the memory cache.
    */
-  async updateVal(key: string, value: string): Promise<void> {
+  async updateVal(
+    key: string,
+    value: string,
+    updatedByAdminId?: number,
+  ): Promise<void> {
     const supabase = this.supabaseService.getClient();
 
     const { error } = await supabase
@@ -88,6 +92,7 @@ export class AppConfigService {
         key,
         value,
         updated_at: new Date().toISOString(),
+        updated_by_admin: updatedByAdminId ?? null,
       });
 
     if (error) {

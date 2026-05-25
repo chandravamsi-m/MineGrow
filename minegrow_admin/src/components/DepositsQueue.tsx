@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   X,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface InvestmentDetail {
@@ -36,6 +38,21 @@ interface InvestmentDetail {
   } | null;
 }
 
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const PAGE_SIZE = 20;
+const initialPagination: PaginationState = {
+  page: 1,
+  limit: PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+};
+
 export const DepositsQueue: React.FC = () => {
   const [investments, setInvestments] = useState<InvestmentDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +70,8 @@ export const DepositsQueue: React.FC = () => {
   
   // Status filter state
   const [statusFilter, setStatusFilter] = useState('pending');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>(initialPagination);
 
   useEffect(() => {
     if (selectedItem?.payment_proof_url) {
@@ -80,10 +99,21 @@ export const DepositsQueue: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      const query = statusFilter ? `?status=${statusFilter}` : '';
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+      if (statusFilter) params.set('status', statusFilter);
+      const query = `?${params.toString()}`;
       const response = await api.get<any>(`admin/investments${query}`);
       if (response.success && response.data) {
         setInvestments(response.data);
+        setPagination({
+          page: response.pagination?.page || page,
+          limit: response.pagination?.limit || PAGE_SIZE,
+          total: response.pagination?.total || response.data.length,
+          totalPages: response.pagination?.totalPages || 1,
+        });
       } else {
         throw new Error(response.message || 'Failed to fetch investment queue');
       }
@@ -99,7 +129,7 @@ export const DepositsQueue: React.FC = () => {
     setSelectedItem(null);
     setShowRejectForm(false);
     setRejectReason('');
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   const approveInvestment = async (id: number) => {
     confirm({
@@ -174,7 +204,10 @@ export const DepositsQueue: React.FC = () => {
       {/* Navigation tabs */}
       <div className="flex border-b border-slate-800 space-x-4 overflow-x-auto whitespace-nowrap scrollbar-none flex-nowrap">
         <button
-          onClick={() => setStatusFilter('pending')}
+          onClick={() => {
+            setStatusFilter('pending');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'pending'
               ? 'border-indigo-500 text-indigo-400 font-bold'
@@ -184,7 +217,10 @@ export const DepositsQueue: React.FC = () => {
           Pending Reviews
         </button>
         <button
-          onClick={() => setStatusFilter('active')}
+          onClick={() => {
+            setStatusFilter('active');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'active'
               ? 'border-emerald-500 text-emerald-400 font-bold'
@@ -194,7 +230,10 @@ export const DepositsQueue: React.FC = () => {
           Active Agreements
         </button>
         <button
-          onClick={() => setStatusFilter('rejected')}
+          onClick={() => {
+            setStatusFilter('rejected');
+            setPage(1);
+          }}
           className={`pb-4 px-2 text-sm font-semibold border-b-2 cursor-pointer transition-all duration-300 flex-shrink-0 ${
             statusFilter === 'rejected'
               ? 'border-rose-500 text-rose-400 font-bold'
@@ -377,6 +416,38 @@ export const DepositsQueue: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {!loading && pagination.totalPages > 1 && (
+            <div className="p-4 bg-slate-950/40 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+              <span className="text-slate-500 font-semibold uppercase tracking-wider">
+                Showing {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} deposits
+              </span>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                  disabled={pagination.page === 1}
+                  className="p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all duration-300 cursor-pointer"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg font-bold text-slate-200">
+                  Page {pagination.page} of {pagination.totalPages}
+                </div>
+
+                <button
+                  onClick={() => setPage((current) => Math.min(current + 1, pagination.totalPages))}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all duration-300 cursor-pointer"
+                  title="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

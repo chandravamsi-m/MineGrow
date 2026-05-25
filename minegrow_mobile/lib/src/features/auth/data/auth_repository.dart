@@ -83,7 +83,17 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
-    await _storage.removeAll();
+    try {
+      await _apiClient.postData<void>(
+        '/auth/logout',
+        parser: (_) {},
+      );
+    } catch (_) {
+      // Local logout should still complete if the session is already invalid
+      // or the device is offline.
+    } finally {
+      await _storage.removeAll();
+    }
   }
 
   String? readSavedMobile() => _storage.readString(AuthStorageKeys.mobile);
