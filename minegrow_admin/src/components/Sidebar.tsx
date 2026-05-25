@@ -125,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isOpe
           className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 text-xs font-semibold transition-all duration-300 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
-          <span>Terminate Session</span>
+          <span>Logout</span>
         </button>
       </div>
     </aside>
