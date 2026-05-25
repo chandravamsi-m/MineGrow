@@ -62,12 +62,16 @@ export class WithdrawalsController {
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('userId') userId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const userFilter = userId ? parseInt(userId, 10) : undefined;
     return this.withdrawalsService.getAllWithdrawals({
       status,
       type,
       userId: userFilter,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 
@@ -134,6 +138,7 @@ export class WithdrawalsController {
     const data = await this.withdrawalsService.getAllWithdrawals({
       status,
       type,
+      paginate: false,
     });
 
     // Build standard CSV

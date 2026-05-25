@@ -15,10 +15,15 @@ import {
   AdjustWalletDto,
 } from './dto/admin.dto';
 import { getISTDateTimeString } from '../common/utils/date.utils';
+import {
+  buildPaginationMeta,
+  getPaginationWindow,
+} from '../common/utils/pagination.utils';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+  private readonly aggregatePageSize = 1000;
 
   constructor(
     private readonly supabaseService: SupabaseClientService,
@@ -27,11 +32,14 @@ export class AdminService {
     private readonly appConfigService: AppConfigService,
   ) {}
 
-  async getUsers(search?: string, status?: string) {
+  async getUsers(search?: string, status?: string, page?: number, limit?: number) {
+    const pagination = getPaginationWindow(page, limit, 50, 100);
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from('users')
-      .select('id, full_name, mobile, email, status, kyc_verified, created_at');
+      .select('id, full_name, mobile, email, status, kyc_verified, created_at', {
+        count: 'exact',
+      });
 
     if (status) {
       query = query.eq('status', status);
@@ -42,15 +50,26 @@ export class AdminService {
       query = query.or(`full_name.ilike.%${search}%,mobile.ilike.%${search}%`);
     }
 
-    const { data: users, error } = await query.order('created_at', {
-      ascending: false,
-    });
+    const {
+      data: users,
+      count,
+      error,
+    } = await query
+      .order('created_at', { ascending: false })
+      .range(pagination.from, pagination.to);
 
     if (error) {
       throw new InternalServerErrorException('Error loading users list');
     }
 
-    return users;
+    return {
+      data: users || [],
+      pagination: buildPaginationMeta(
+        pagination.page,
+        pagination.limit,
+        count || 0,
+      ),
+    };
   }
 
   async getUserDetail(userId: number) {
@@ -359,37 +378,27 @@ export class AdminService {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'requested');
 
-    // 2. Sums
-    const { data: deposits } = await supabase
-      .from('investments')
-      .select('amount')
-      .in('status', ['active', 'matured']);
-    const totalDeposited = deposits
-      ? deposits.reduce((acc, curr) => acc + Number(curr.amount), 0)
-      : 0;
-
-    const { data: withdrawals } = await supabase
-      .from('withdrawals')
-      .select('amount')
-      .eq('status', 'completed');
-    const totalWithdrawn = withdrawals
-      ? withdrawals.reduce((acc, curr) => acc + Number(curr.amount), 0)
-      : 0;
-
-    const { data: activeLocks } = await supabase
-      .from('investments')
-      .select('amount')
-      .eq('status', 'active');
-    const activeLockSum = activeLocks
-      ? activeLocks.reduce((acc, curr) => acc + Number(curr.amount), 0)
-      : 0;
-
-    const { data: roiEarned } = await supabase
-      .from('roi_history')
-      .select('roi_amount');
-    const totalRoiDistributed = roiEarned
-      ? roiEarned.reduce((acc, curr) => acc + Number(curr.roi_amount), 0)
-      : 0;
+    // 2. Sums. Keep each response bounded so dashboard requests do not load
+    // entire financial tables into memory.
+    const totalDeposited = await this.sumNumericColumn(
+      'investments',
+      'amount',
+      (query) => query.in('status', ['active', 'matured']),
+    );
+    const totalWithdrawn = await this.sumNumericColumn(
+      'withdrawals',
+      'amount',
+      (query) => query.eq('status', 'completed'),
+    );
+    const activeLockSum = await this.sumNumericColumn(
+      'investments',
+      'amount',
+      (query) => query.eq('status', 'active'),
+    );
+    const totalRoiDistributed = await this.sumNumericColumn(
+      'roi_history',
+      'roi_amount',
+    );
 
     return {
       totalActiveUsers: activeUsers || 0,
@@ -401,6 +410,47 @@ export class AdminService {
       activePrincipalLockSum: activeLockSum,
       totalDailyRoiDistributed: totalRoiDistributed,
     };
+  }
+
+  private async sumNumericColumn(
+    table: string,
+    column: string,
+    applyFilters?: (query: any) => any,
+  ): Promise<number> {
+    const supabase = this.supabaseService.getClient();
+    let total = 0;
+    let from = 0;
+
+    while (true) {
+      let query = supabase
+        .from(table)
+        .select(column)
+        .range(from, from + this.aggregatePageSize - 1);
+
+      if (applyFilters) {
+        query = applyFilters(query);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        this.logger.error(`Error summing ${table}.${column}:`, error);
+        throw new InternalServerErrorException('Error loading dashboard totals');
+      }
+
+      const rows = data || [];
+      for (const row of rows) {
+        total += Number((row as unknown as Record<string, unknown>)[column]) || 0;
+      }
+
+      if (rows.length < this.aggregatePageSize) {
+        break;
+      }
+
+      from += this.aggregatePageSize;
+    }
+
+    return total;
   }
 
   async getSystemLedger(page = 1, limit = 50) {
@@ -558,7 +608,7 @@ export class AdminService {
     ipAddress?: string,
   ) {
     // 1. Update DB & invalidate cache via AppConfigService
-    await this.appConfigService.updateVal(key, value);
+    await this.appConfigService.updateVal(key, value, adminId);
 
     // 2. Audit log
     await this.auditService.log(

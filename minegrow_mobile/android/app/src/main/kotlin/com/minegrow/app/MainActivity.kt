@@ -1,4 +1,4 @@
-package com.example.minegrow
+package com.minegrow.app
 
 import io.flutter.embedding.android.FlutterActivity
 
