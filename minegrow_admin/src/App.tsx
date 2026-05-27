@@ -37,8 +37,8 @@ const readTabFromHash = (): Tab => {
 
 const MainAppContent: React.FC = () => {
   const { admin, login, sessionError, clearSessionError } = useAuth();
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem('minegrow_admin_active_tab') || 'dashboard';
+  const [activeTab, setActiveTabState] = useState<Tab>(() => {
+    return readTabFromHash();
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 

@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: minegrow-backend
+    env: node
+    plan: free
+    rootDirectory: minegrow_backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: SUPABASE_URL
+        sync: false
+        placeholder: "Enter Supabase project URL (from backend .env)"
+      - key: SUPABASE_ANON_KEY
+        sync: false
+        placeholder: "Enter Supabase anon public key (from backend .env)"
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+        placeholder: "Enter Supabase service role secret key (from backend .env)"
+      - key: SUPABASE_STORAGE_BUCKET
+        value: minegrow-app-files
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_SEED_SECRET
+        value: admin-bootstrap-secret-999
+      - key: OTP_EXPIRY_MINUTES
+        value: "5"
+      - key: SMS_PROVIDER
+        value: DEV
+      - key: SMS_API_KEY
+        value: mock-sms-key
+      - key: SMS_SENDER_ID
+        value: MINEAP
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+        placeholder: "Enter FCM Firebase Project ID"
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+        placeholder: "Enter FCM Client Email"
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+        placeholder: "Enter FCM Private Key (including quotes and newlines)"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+        placeholder: "Comma-separated production domains (e.g. http://localhost:5173,https://your-admin.onrender.com)"
