@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/dio_client.dart';
@@ -24,12 +26,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     _checkAuthAndNavigate();
   }
 
+  Future<void> _warmUpBackend() async {
+    try {
+      await Dio().get<void>(
+        '${AppConfig.apiBaseUrl}/health',
+        options: Options(receiveTimeout: const Duration(seconds: 15)),
+      );
+    } catch (_) {}
+  }
+
   Future<void> _checkAuthAndNavigate() async {
-    // Minimum branding display time + read token concurrently
     final storage = ref.read(localStorageProvider);
     final results = await Future.wait([
       storage.readStringAsync(AuthStorageKeys.accessToken),
       Future<void>.delayed(const Duration(milliseconds: 2000)),
+      _warmUpBackend(),
     ]);
 
     if (!mounted) return;

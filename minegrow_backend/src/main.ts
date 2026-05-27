@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -46,7 +46,9 @@ async function bootstrap() {
   });
 
   // 3. Set base path for API versioning (Section 12: Base URL: /api/v1)
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
 
   // 4. Register global transformation and validation pipes — HIGH-4: forbidNonWhitelisted: true
   app.useGlobalPipes(
