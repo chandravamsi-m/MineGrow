@@ -36,8 +36,10 @@ const readTabFromHash = (): Tab => {
 };
 
 const MainAppContent: React.FC = () => {
-  const { admin, login } = useAuth();
-  const [activeTab, setActiveTabState] = useState<Tab>(() => readTabFromHash());
+  const { admin, login, sessionError, clearSessionError } = useAuth();
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('minegrow_admin_active_tab') || 'dashboard';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Write tab → URL hash (creates a real history entry so browser back works).
@@ -76,6 +78,7 @@ const MainAppContent: React.FC = () => {
     
     setLoginLoading(true);
     setLoginError(null);
+    clearSessionError();
     try {
       await login(email, password);
     } catch (err: any) {
@@ -109,10 +112,10 @@ const MainAppContent: React.FC = () => {
 
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-5">
-            {loginError && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center space-x-2 text-xs">
+            {(sessionError || loginError) && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center space-x-2 text-xs animate-fadeIn">
                 <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                <span>{loginError}</span>
+                <span>{sessionError || loginError}</span>
               </div>
             )}
 
@@ -234,6 +237,45 @@ const MainAppContent: React.FC = () => {
 };
 
 export default function App() {
+  useEffect(() => {
+    const getScrollParent = (node: HTMLElement | null): HTMLElement => {
+      if (node === null || node === document.body) {
+        return document.documentElement;
+      }
+      const overflowY = window.getComputedStyle(node).overflowY;
+      const isScrollable = overflowY !== 'visible' && overflowY !== 'hidden';
+      if (isScrollable && node.scrollHeight > node.clientHeight) {
+        return node;
+      }
+      return getScrollParent(node.parentElement);
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+      const activeEl = document.activeElement as HTMLInputElement | null;
+      if (
+        activeEl &&
+        activeEl.tagName === 'INPUT' &&
+        activeEl.type === 'number'
+      ) {
+        const target = e.target as HTMLElement;
+        if (target === activeEl || activeEl.contains(target)) {
+          e.preventDefault();
+          const scrollParent = getScrollParent(activeEl);
+          scrollParent.scrollBy({
+            top: e.deltaY,
+            left: e.deltaX,
+            behavior: 'auto'
+          });
+        }
+      }
+    };
+
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      document.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <AuthProvider>
       <ToastProvider>

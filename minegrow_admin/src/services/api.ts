@@ -22,14 +22,10 @@ export interface ApiResponse<T = any> {
 }
 
 class ApiService {
-  private buildUrl(path: string): string {
-    if (!BASE_URL) {
-      throw new Error(
-        'Admin API base URL is not configured. Set VITE_BASE_URL to the backend /api/v1 URL.',
-      );
-    }
+  private onUnauthorizedCallback: (() => void) | null = null;
 
-    return `${BASE_URL}/${path.replace(/^\/+/, '')}`;
+  registerOnUnauthorized(callback: () => void) {
+    this.onUnauthorizedCallback = callback;
   }
 
   private getHeaders(isMultipart = false): HeadersInit {
@@ -49,6 +45,9 @@ class ApiService {
       // Automatic session cleanup on unauthorized — React state handles showing the login page
       localStorage.removeItem('admin_access_token');
       localStorage.removeItem('admin_user');
+      if (this.onUnauthorizedCallback) {
+        this.onUnauthorizedCallback();
+      }
       throw new Error('Session expired. Please log in again.');
     }
 
