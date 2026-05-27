@@ -27,7 +27,9 @@ final dioProvider = Provider<Dio>((ref) {
     InterceptorsWrapper(
       onRequest: (options, handler) async {
         // HIGH-3: Read token from encrypted secure storage (async)
-        final accessToken = await storage.readStringAsync(AuthStorageKeys.accessToken);
+        final accessToken = await storage.readStringAsync(
+          AuthStorageKeys.accessToken,
+        );
         if (accessToken != null && accessToken.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $accessToken';
         }
@@ -41,8 +43,9 @@ final dioProvider = Provider<Dio>((ref) {
         // Attempt token refresh on 401, but never recurse into the refresh endpoint itself.
         if (statusCode == 401 && !requestPath.contains('/auth/refresh')) {
           try {
-            final refreshToken =
-                await storage.readStringAsync(AuthStorageKeys.refreshToken);
+            final refreshToken = await storage.readStringAsync(
+              AuthStorageKeys.refreshToken,
+            );
 
             if (refreshToken == null || refreshToken.isEmpty) {
               await storage.removeAll();
@@ -57,8 +60,7 @@ final dioProvider = Provider<Dio>((ref) {
 
             // NestJS TransformInterceptor wraps responses as
             // { success, data: { accessToken, refreshToken }, ... }
-            final responseBody =
-                refreshResponse.data as Map<String, dynamic>?;
+            final responseBody = refreshResponse.data as Map<String, dynamic>?;
             final payload =
                 (responseBody?['data'] as Map<String, dynamic>?) ??
                 responseBody;
@@ -74,8 +76,14 @@ final dioProvider = Provider<Dio>((ref) {
               return;
             }
 
-            await storage.writeString(AuthStorageKeys.accessToken, newAccessToken);
-            await storage.writeString(AuthStorageKeys.refreshToken, newRefreshToken);
+            await storage.writeString(
+              AuthStorageKeys.accessToken,
+              newAccessToken,
+            );
+            await storage.writeString(
+              AuthStorageKeys.refreshToken,
+              newRefreshToken,
+            );
 
             // Retry the original request with the fresh access token.
             error.requestOptions.headers['Authorization'] =
@@ -162,6 +170,22 @@ class ApiClient {
     );
   }
 
+  Future<Response<T>> patch<T>(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) {
+    return _request(
+      () => _dio.patch<T>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+      ),
+    );
+  }
+
   Future<Response<T>> delete<T>(
     String path, {
     Object? data,
@@ -213,6 +237,22 @@ class ApiClient {
       path,
       data: data,
       queryParameters: queryParameters,
+    );
+    return parser(_unwrapData(response.data));
+  }
+
+  Future<T> patchData<T>(
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    required T Function(Object? json) parser,
+  }) async {
+    final response = await patch<Object?>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
     );
     return parser(_unwrapData(response.data));
   }

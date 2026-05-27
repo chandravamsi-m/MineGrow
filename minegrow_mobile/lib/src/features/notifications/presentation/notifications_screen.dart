@@ -40,7 +40,29 @@ class NotificationsScreen extends ConsumerWidget {
               return Column(
                 children: [
                   for (final item in items) ...[
-                    _NotificationCard(item: item),
+                    _NotificationCard(
+                      item: item,
+                      onTap: item.isRead
+                          ? null
+                          : () async {
+                              try {
+                                await ref
+                                    .read(notificationsRepositoryProvider)
+                                    .markAsRead(item.id);
+                                ref.invalidate(notificationsProvider);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Could not mark notification as read.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                    ),
                     const SizedBox(height: 12),
                   ],
                 ],
@@ -54,15 +76,17 @@ class NotificationsScreen extends ConsumerWidget {
 }
 
 class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({required this.item});
+  const _NotificationCard({required this.item, this.onTap});
 
   final ApiNotification item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final (icon, color) = _iconAndColor(item.type);
 
     return MGCard(
+      onTap: onTap,
       padding: EdgeInsets.all(context.metrics.compactPadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,20 +147,15 @@ class _NotificationCard extends StatelessWidget {
         Icons.workspace_premium_outlined,
         const Color(0xFFF59E0B),
       ),
-      'deposit' ||
-      'investment_approved' => (
+      'deposit' || 'investment_approved' => (
         Icons.check_circle_outline,
         const Color(0xFF22C55E),
       ),
-      'withdrawal' ||
-      'withdrawal_approved' => (
+      'withdrawal' || 'withdrawal_approved' => (
         Icons.savings_outlined,
         const Color(0xFF22C55E),
       ),
-      'withdrawal_rejected' => (
-        Icons.cancel_outlined,
-        const Color(0xFFEF4444),
-      ),
+      'withdrawal_rejected' => (Icons.cancel_outlined, const Color(0xFFEF4444)),
       'maintenance' => (
         Icons.notifications_active_outlined,
         const Color(0xFF7C4DFF),

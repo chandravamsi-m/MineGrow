@@ -20,6 +20,8 @@ import {
   QrCode,
   IndianRupee,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface UserDetail {
@@ -51,6 +53,21 @@ interface WalletAdjustmentForm {
   amount: string;
   reason: string;
 }
+
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const PAGE_SIZE = 20;
+const initialPagination: PaginationState = {
+  page: 1,
+  limit: PAGE_SIZE,
+  total: 0,
+  totalPages: 1,
+};
 
 const getKycDocumentPath = (kycDoc: any): string | null => {
   return kycDoc?.doc_url || kycDoc?.document_url || null;
@@ -86,6 +103,8 @@ export const UsersList: React.FC = () => {
   const [users, setUsers] = useState<UserDetail[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>(initialPagination);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -135,11 +154,19 @@ export const UsersList: React.FC = () => {
       const queryParams = [];
       if (search) queryParams.push(`search=${encodeURIComponent(search)}`);
       if (statusFilter) queryParams.push(`status=${statusFilter}`);
+      queryParams.push(`page=${page}`);
+      queryParams.push(`limit=${PAGE_SIZE}`);
       const queryString = queryParams.length ? `?${queryParams.join('&')}` : '';
       
       const response = await api.get<any>(`admin/users${queryString}`);
       if (response.success && response.data) {
         setUsers(response.data);
+        setPagination({
+          page: response.pagination?.page || page,
+          limit: response.pagination?.limit || PAGE_SIZE,
+          total: response.pagination?.total || response.data.length,
+          totalPages: response.pagination?.totalPages || 1,
+        });
       } else {
         throw new Error(response.message || 'Failed to fetch users list');
       }
@@ -155,7 +182,7 @@ export const UsersList: React.FC = () => {
       fetchUsers();
     }, 300); // Debounce search
     return () => clearTimeout(timer);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, page]);
 
   const viewUserDetail = async (userId: number) => {
     setDetailsLoading(true);
@@ -361,7 +388,10 @@ export const UsersList: React.FC = () => {
             type="text"
             placeholder="Search users by name, mobile number or client ID..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full bg-slate-900/60 border border-slate-800/80 rounded-xl py-3 pl-12 pr-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-all duration-300"
           />
         </div>
@@ -371,7 +401,10 @@ export const UsersList: React.FC = () => {
           <Filter className="w-4 h-4 text-slate-500 absolute left-4 top-4" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
             className="w-full bg-slate-900/60 border border-slate-800/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-all duration-300 appearance-none cursor-pointer"
           >
             <option value="">Filter Status: All</option>
@@ -583,6 +616,38 @@ export const UsersList: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {!loading && pagination.totalPages > 1 && (
+            <div className="p-4 bg-slate-950/40 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs">
+              <span className="text-slate-500 font-semibold uppercase tracking-wider">
+                Showing {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} users
+              </span>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                  disabled={pagination.page === 1}
+                  className="p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all duration-300 cursor-pointer"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-lg font-bold text-slate-200">
+                  Page {pagination.page} of {pagination.totalPages}
+                </div>
+
+                <button
+                  onClick={() => setPage((current) => Math.min(current + 1, pagination.totalPages))}
+                  disabled={pagination.page === pagination.totalPages}
+                  className="p-2 bg-slate-900 border border-slate-800 rounded-lg hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all duration-300 cursor-pointer"
+                  title="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
