@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
@@ -53,8 +55,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
         _errorText = 'Enter your UPI ID to proceed.';
         return;
       }
-      if (_method == WithdrawalMethod.bank &&
-          _selectedBankAccountId == null) {
+      if (_method == WithdrawalMethod.bank && _selectedBankAccountId == null) {
         _errorText = 'Select a bank account to proceed.';
         return;
       }
@@ -71,15 +72,17 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
         await repo.requestRoiWithdrawal(
           amount: amount,
           upiId: _method == WithdrawalMethod.upi ? upi : null,
-          bankAccountId:
-              _method == WithdrawalMethod.bank ? _selectedBankAccountId : null,
+          bankAccountId: _method == WithdrawalMethod.bank
+              ? _selectedBankAccountId
+              : null,
         );
       } else {
         await repo.requestPrincipalWithdrawal(
           amount: amount,
           upiId: _method == WithdrawalMethod.upi ? upi : null,
-          bankAccountId:
-              _method == WithdrawalMethod.bank ? _selectedBankAccountId : null,
+          bankAccountId: _method == WithdrawalMethod.bank
+              ? _selectedBankAccountId
+              : null,
         );
       }
       ref.invalidate(withdrawalEligibilityProvider);
@@ -190,7 +193,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             const SizedBox(height: 14),
             if (_submitted)
               MGInlineMessage(
-                message: 'Withdrawal request submitted. You will be notified once processed.',
+                message:
+                    'Withdrawal request submitted. You will be notified once processed.',
                 tone: MGMessageTone.success,
                 icon: Icons.check_circle_outline,
               )
@@ -224,18 +228,27 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             children: [
               _AmountChip(
                 label: '25%',
-                onTap: () => setState(() => _amountController.text =
-                    (balance * 0.25).round().toString()),
+                onTap: () => setState(
+                  () => _amountController.text = (balance * 0.25)
+                      .round()
+                      .toString(),
+                ),
               ),
               _AmountChip(
                 label: '50%',
-                onTap: () => setState(() => _amountController.text =
-                    (balance * 0.50).round().toString()),
+                onTap: () => setState(
+                  () => _amountController.text = (balance * 0.50)
+                      .round()
+                      .toString(),
+                ),
               ),
               _AmountChip(
                 label: '75%',
-                onTap: () => setState(() => _amountController.text =
-                    (balance * 0.75).round().toString()),
+                onTap: () => setState(
+                  () => _amountController.text = (balance * 0.75)
+                      .round()
+                      .toString(),
+                ),
               ),
               _AmountChip(
                 label: 'All',
@@ -258,8 +271,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                   icon: Icons.account_balance_outlined,
                   label: 'Bank Account',
                   selected: _method == WithdrawalMethod.bank,
-                  onTap: () =>
-                      setState(() => _method = WithdrawalMethod.bank),
+                  onTap: () => setState(() => _method = WithdrawalMethod.bank),
                 ),
               ),
               const SizedBox(width: 12),
@@ -268,8 +280,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                   icon: Icons.phone_android,
                   label: 'UPI',
                   selected: _method == WithdrawalMethod.upi,
-                  onTap: () =>
-                      setState(() => _method = WithdrawalMethod.upi),
+                  onTap: () => setState(() => _method = WithdrawalMethod.upi),
                 ),
               ),
             ],
@@ -287,15 +298,16 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             _BankAccountSelector(
               bankAccountsState: bankAccountsState,
               selectedId: _selectedBankAccountId,
-              onSelect: (id) =>
-                  setState(() => _selectedBankAccountId = id),
+              onSelect: (id) => setState(() => _selectedBankAccountId = id),
+              onAddBankAccount: () => context.go(AppRoutes.bankAccounts),
             ),
           ],
           const SizedBox(height: 28),
           MGGradientButton(
             label: _isSubmitting ? 'Submitting...' : 'Request Withdrawal',
-            onPressed:
-                (_isSubmitting || !isEligible) ? null : () => _requestWithdrawal(balance),
+            onPressed: (_isSubmitting || !isEligible)
+                ? null
+                : () => _requestWithdrawal(balance),
           ),
           if (!isEligible && eligibility != null) ...[
             const SizedBox(height: 10),
@@ -343,9 +355,7 @@ class _MethodButton extends StatelessWidget {
           color: selected ? null : context.tokens.surfaceElevated,
           borderRadius: BorderRadius.circular(context.metrics.radiusMedium),
           border: Border.all(
-            color: selected
-                ? Colors.transparent
-                : context.tokens.borderMuted,
+            color: selected ? Colors.transparent : context.tokens.borderMuted,
           ),
         ),
         child: Row(
@@ -385,10 +395,7 @@ class _AmountChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AmountChip(label),
-    );
+    return GestureDetector(onTap: onTap, child: AmountChip(label));
   }
 }
 
@@ -399,11 +406,13 @@ class _BankAccountSelector extends StatelessWidget {
     required this.bankAccountsState,
     required this.selectedId,
     required this.onSelect,
+    required this.onAddBankAccount,
   });
 
   final AsyncValue<List<BankAccount>> bankAccountsState;
   final int? selectedId;
   final ValueChanged<int> onSelect;
+  final VoidCallback onAddBankAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -416,11 +425,13 @@ class _BankAccountSelector extends StatelessWidget {
       ),
       data: (accounts) {
         if (accounts.isEmpty) {
-          return const MGInlineMessage(
-            message:
-                'No bank accounts linked. Add one via Profile → Bank Accounts.',
-            tone: MGMessageTone.warning,
+          return MGFriendlyState(
             icon: Icons.account_balance_outlined,
+            title: 'No bank account linked',
+            message: 'Add a bank account before requesting a bank withdrawal.',
+            actionLabel: 'Add Bank Account',
+            onAction: onAddBankAccount,
+            compact: true,
           );
         }
         return Column(
@@ -491,9 +502,7 @@ class _BankAccountTile extends StatelessWidget {
           ),
           Icon(
             selected ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: selected
-                ? context.tokens.success
-                : context.tokens.textMuted,
+            color: selected ? context.tokens.success : context.tokens.textMuted,
             size: 20,
           ),
         ],

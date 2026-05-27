@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 
@@ -33,6 +34,17 @@ class PushNotificationsService {
   final ApiClient _apiClient;
   final Logger _logger;
   StreamSubscription<String>? _tokenRefreshSubscription;
+  StreamSubscription<RemoteMessage>? _foregroundMessageSubscription;
+
+  static const _androidChannel = AndroidNotificationChannel(
+    'minegrow_alerts',
+    'MineGrow alerts',
+    description: 'Investment, wallet, withdrawal, and account updates.',
+    importance: Importance.high,
+  );
+
+  static final _localNotifications = FlutterLocalNotificationsPlugin();
+  static bool _localNotificationsReady = false;
 
   static Future<bool> bootstrapFirebase() async {
     if (Firebase.apps.isNotEmpty) return true;
@@ -40,6 +52,7 @@ class PushNotificationsService {
     try {
       await Firebase.initializeApp();
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      await _bootstrapLocalNotifications();
       return true;
     } catch (_) {
       return false;
@@ -72,6 +85,9 @@ class PushNotificationsService {
     if (token == null || token.isEmpty) return;
 
     await _registerToken(token);
+    _foregroundMessageSubscription ??= FirebaseMessaging.onMessage.listen(
+      _showForegroundNotification,
+    );
     _tokenRefreshSubscription ??= FirebaseMessaging.instance.onTokenRefresh
         .listen((nextToken) {
           _registerToken(nextToken);
@@ -95,6 +111,45 @@ class PushNotificationsService {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  static Future<void> _bootstrapLocalNotifications() async {
+    if (_localNotificationsReady) return;
+
+    const initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    );
+    await _localNotifications.initialize(settings: initializationSettings);
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(_androidChannel);
+    _localNotificationsReady = true;
+  }
+
+  static Future<void> _showForegroundNotification(RemoteMessage message) async {
+    await _bootstrapLocalNotifications();
+
+    final notification = message.notification;
+    if (notification == null) return;
+
+    await _localNotifications.show(
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _androidChannel.id,
+          _androidChannel.name,
+          channelDescription: _androidChannel.description,
+          icon: '@mipmap/ic_launcher',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+      payload: message.data.isEmpty ? null : message.data.toString(),
+    );
   }
 
   static bool get _supportsPushPlatform =>
