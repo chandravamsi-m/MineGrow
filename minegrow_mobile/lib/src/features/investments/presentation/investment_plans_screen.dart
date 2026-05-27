@@ -6,6 +6,7 @@ import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/investments_repository.dart';
 
 class InvestmentPlansScreen extends ConsumerStatefulWidget {
@@ -211,15 +212,22 @@ class _TabLabel extends StatelessWidget {
 
 // ── Plans Tab ────────────────────────────────────────────────────────────────
 
-class _PlansTab extends StatelessWidget {
+class _PlansTab extends ConsumerWidget {
   const _PlansTab({required this.plansState, required this.onRetry});
 
   final AsyncValue<List<InvestmentPlan>> plansState;
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final metrics = context.metrics;
+    final profile = ref.watch(profileProvider);
+    final accountStatus = profile.maybeWhen(
+      data: (p) => p.status,
+      orElse: () => '',
+    );
+    final isPendingKyc = accountStatus == 'pending_kyc';
+    final isSuspended = accountStatus == 'suspended';
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -237,6 +245,18 @@ class _PlansTab extends StatelessWidget {
               color: context.tokens.textSecondary,
             ),
           ),
+          if (isPendingKyc || isSuspended) ...[
+            const SizedBox(height: 12),
+            MGInlineMessage(
+              tone: isSuspended ? MGMessageTone.danger : MGMessageTone.warning,
+              icon: isSuspended
+                  ? Icons.block_outlined
+                  : Icons.verified_user_outlined,
+              message: isSuspended
+                  ? 'Your account is suspended. New investments are blocked until support reactivates the account.'
+                  : 'KYC review is in progress. New investments are paused until verification completes — you can still browse plans below.',
+            ),
+          ],
           const SizedBox(height: 16),
           plansState.when(
             loading: () => const MGLoadingList(),

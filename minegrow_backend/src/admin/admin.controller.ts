@@ -51,8 +51,15 @@ export class AdminController {
   async getUsers(
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.adminService.getUsers(search, status);
+    return this.adminService.getUsers(
+      search,
+      status,
+      page ? parseInt(page, 10) : undefined,
+      limit ? parseInt(limit, 10) : undefined,
+    );
   }
 
   @Get('users/:id')

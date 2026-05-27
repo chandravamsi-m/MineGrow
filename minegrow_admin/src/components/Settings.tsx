@@ -2,15 +2,166 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { Settings as SettingsIcon, CreditCard, Clock, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import {
+  Settings as SettingsIcon,
+  CreditCard,
+  Clock,
+  Save,
+  RefreshCw,
+  AlertCircle,
+  Mail,
+  Phone,
+  FileText,
+  ShieldAlert,
+  LifeBuoy,
+} from 'lucide-react';
+
+type FieldKind = 'text' | 'number' | 'email' | 'tel' | 'url' | 'textarea';
+
+interface ConfigField {
+  key: string;
+  label: string;
+  description: string;
+  placeholder: string;
+  kind: FieldKind;
+  icon: React.ComponentType<{ className?: string }>;
+  iconTint: string;
+  group: 'payments' | 'auth' | 'support' | 'legal';
+  min?: number;
+  max?: number;
+  required?: boolean;
+  validate?: (value: string) => string | null;
+}
+
+const FIELDS: ConfigField[] = [
+  {
+    key: 'payment_upi_id',
+    label: 'Payment Gateway UPI ID',
+    description: 'UPI / VPA displayed to users on the deposit sheet. Must be linked to the settlement account.',
+    placeholder: 'pay@gateway',
+    kind: 'text',
+    icon: CreditCard,
+    iconTint: 'emerald',
+    group: 'payments',
+    required: true,
+  },
+  {
+    key: 'otp_resend_delay',
+    label: 'OTP Resend Delay (seconds)',
+    description: 'Throttle for the mobile OTP resend button. Lower values cost more SMS; higher values risk drop-off.',
+    placeholder: '30',
+    kind: 'number',
+    icon: Clock,
+    iconTint: 'indigo',
+    group: 'auth',
+    min: 10,
+    max: 300,
+    required: true,
+  },
+  {
+    key: 'support_email',
+    label: 'Support Email',
+    description: 'Customer support email shown inside the mobile profile + onboarding screens.',
+    placeholder: 'support@minegrow.app',
+    kind: 'email',
+    icon: Mail,
+    iconTint: 'sky',
+    group: 'support',
+    required: true,
+  },
+  {
+    key: 'support_phone',
+    label: 'Support Phone',
+    description: 'Phone number shown alongside support email. Include country code (e.g. +91 90000 00000).',
+    placeholder: '+91 90000 00000',
+    kind: 'tel',
+    icon: Phone,
+    iconTint: 'amber',
+    group: 'support',
+    required: true,
+  },
+  {
+    key: 'terms_url',
+    label: 'Terms of Service URL',
+    description: 'Linked from the mobile login footer and profile legal section.',
+    placeholder: 'https://minegrow.app/terms',
+    kind: 'url',
+    icon: FileText,
+    iconTint: 'violet',
+    group: 'legal',
+    required: true,
+  },
+  {
+    key: 'privacy_url',
+    label: 'Privacy Policy URL',
+    description: 'Linked from the mobile login footer and profile legal section.',
+    placeholder: 'https://minegrow.app/privacy',
+    kind: 'url',
+    icon: ShieldAlert,
+    iconTint: 'fuchsia',
+    group: 'legal',
+    required: true,
+  },
+  {
+    key: 'risk_disclosure',
+    label: 'Risk Disclosure Text',
+    description: 'Long-form disclosure shown on the invest screen. Plain text, no markdown.',
+    placeholder: 'Mining investment returns depend on active plan terms…',
+    kind: 'textarea',
+    icon: LifeBuoy,
+    iconTint: 'rose',
+    group: 'legal',
+    required: true,
+  },
+];
+
+const TINT_BG: Record<string, string> = {
+  emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+  indigo: 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400',
+  sky: 'bg-sky-500/10 border-sky-500/20 text-sky-400',
+  amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+  violet: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
+  fuchsia: 'bg-fuchsia-500/10 border-fuchsia-500/20 text-fuchsia-400',
+  rose: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
+};
+
+const GROUP_TITLES: Record<ConfigField['group'], string> = {
+  payments: 'Payments',
+  auth: 'Authentication',
+  support: 'Support contacts',
+  legal: 'Legal & compliance',
+};
+
+function validateField(field: ConfigField, value: string): string | null {
+  const trimmed = value.trim();
+  if (field.required && !trimmed) return `${field.label} is required`;
+
+  if (field.kind === 'number') {
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) return `${field.label} must be a number`;
+    if (field.min !== undefined && n < field.min) return `${field.label} must be ≥ ${field.min}`;
+    if (field.max !== undefined && n > field.max) return `${field.label} must be ≤ ${field.max}`;
+  }
+
+  if (field.kind === 'email' && trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return `${field.label} must be a valid email`;
+  }
+
+  if (field.kind === 'url' && trimmed && !/^https?:\/\/.+/i.test(trimmed)) {
+    return `${field.label} must start with http:// or https://`;
+  }
+
+  return null;
+}
 
 export const Settings: React.FC = () => {
-  const [paymentUpi, setPaymentUpi] = useState('');
-  const [otpDelay, setOtpDelay] = useState(30);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [original, setOriginal] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -19,21 +170,20 @@ export const Settings: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await api.get<any>('admin/app-config');
-      if (Array.isArray(response)) {
-        // Direct array response
-        const upiItem = response.find(c => c.key === 'payment_upi_id');
-        const delayItem = response.find(c => c.key === 'otp_resend_delay');
-        if (upiItem) setPaymentUpi(upiItem.value);
-        if (delayItem) setOtpDelay(parseInt(delayItem.value, 10) || 30);
-      } else if (response.success && Array.isArray(response.data)) {
-        // Wrapped response
-        const upiItem = response.data.find((c: any) => c.key === 'payment_upi_id');
-        const delayItem = response.data.find((c: any) => c.key === 'otp_resend_delay');
-        if (upiItem) setPaymentUpi(upiItem.value);
-        if (delayItem) setOtpDelay(parseInt(delayItem.value, 10) || 30);
-      } else {
-        throw new Error('Failed to load system configs');
+      const list: { key: string; value: string }[] = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+      const map: Record<string, string> = {};
+      for (const field of FIELDS) {
+        const found = list.find((c) => c.key === field.key);
+        map[field.key] = found ? String(found.value ?? '') : '';
       }
+      setValues(map);
+      setOriginal(map);
+      setErrors({});
     } catch (err: any) {
       setError(err.message || 'Error occurred listing app configs');
       toast.error(err.message || 'Failed to fetch system configurations');
@@ -46,38 +196,65 @@ export const Settings: React.FC = () => {
     fetchConfigs();
   }, []);
 
+  const updateValue = (key: string, value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const changedFields = FIELDS.filter((f) => values[f.key] !== original[f.key]);
+  const hasChanges = changedFields.length > 0;
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paymentUpi.trim()) {
-      toast.error('Payment UPI ID cannot be empty');
+
+    const nextErrors: Record<string, string> = {};
+    for (const field of FIELDS) {
+      const msg = validateField(field, values[field.key] ?? '');
+      if (msg) nextErrors[field.key] = msg;
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast.error('Fix the highlighted fields before saving');
       return;
     }
-    if (otpDelay < 10 || otpDelay > 300) {
-      toast.error('OTP delay must be between 10 and 300 seconds');
+
+    if (!hasChanges) {
+      toast.error('No changes to save');
       return;
     }
 
     confirm({
       title: 'Update App Parameters',
-      message: 'Are you sure you want to update the payment UPI ID and OTP resend delay? This changes global parameters for all clients immediately.',
+      message: `You are about to update ${changedFields.length} configuration ${
+        changedFields.length === 1 ? 'value' : 'values'
+      }. These changes are applied globally and take effect on the next request.`,
       confirmText: 'Save Parameters',
       type: 'warning',
       onConfirm: async () => {
         setSaving(true);
         try {
-          // Update Payment UPI ID
-          await api.patch(`admin/app-config/payment_upi_id`, { value: paymentUpi });
-          // Update OTP Delay
-          await api.patch(`admin/app-config/otp_resend_delay`, { value: otpDelay.toString() });
-          
-          toast.success('App configurations updated successfully');
+          for (const field of changedFields) {
+            await api.patch(`admin/app-config/${field.key}`, {
+              value: values[field.key].trim(),
+            });
+          }
+          toast.success(
+            changedFields.length === 1
+              ? '1 configuration updated successfully'
+              : `${changedFields.length} configurations updated successfully`,
+          );
           fetchConfigs();
         } catch (err: any) {
           toast.error(err.message || 'Failed to save configuration settings');
         } finally {
           setSaving(false);
         }
-      }
+      },
     });
   };
 
@@ -89,30 +266,37 @@ export const Settings: React.FC = () => {
           <div className="h-4 bg-slate-900/60 rounded-xl w-72"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="h-48 bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6"></div>
-          <div className="h-48 bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6"></div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-48 bg-slate-900/60 border border-slate-900/80 rounded-2xl p-6"
+            ></div>
+          ))}
         </div>
       </div>
     );
   }
 
+  const groups: ConfigField['group'][] = ['payments', 'auth', 'support', 'legal'];
+
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Header Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
         <div>
           <h2 className="text-3xl font-extrabold text-white tracking-tight flex items-center space-x-3">
-            <SettingsIcon className="w-8 h-8 text-indigo-400 animate-spin-slow" />
+            <SettingsIcon className="w-8 h-8 text-indigo-400" />
             <span>App Parameters</span>
           </h2>
-          <p className="text-slate-400 text-sm mt-1">Configure security delays, gateway credentials, and other global features.</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Runtime configuration consumed by the mobile app and the backend. Changes apply immediately.
+          </p>
         </div>
         <button
           onClick={fetchConfigs}
           className="flex items-center space-x-2 px-4 py-2 text-xs font-semibold bg-slate-900/60 border border-slate-800/80 hover:bg-slate-800/60 rounded-xl text-slate-300 transition-all cursor-pointer"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Synchronize Cache</span>
+          <span>Reload</span>
         </button>
       </div>
 
@@ -123,78 +307,117 @@ export const Settings: React.FC = () => {
         </div>
       )}
 
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: Payment UPI Gateway */}
-          <div className="glass-panel p-6 rounded-2xl space-y-6">
-            <div className="flex items-center space-x-3 border-b border-slate-800 pb-4">
-              <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
-                <CreditCard className="w-5 h-5" />
+      <form onSubmit={handleSave} className="space-y-10">
+        {groups.map((group) => {
+          const fields = FIELDS.filter((f) => f.group === group);
+          if (fields.length === 0) return null;
+          return (
+            <section key={group} className="space-y-4">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+                  {GROUP_TITLES[group]}
+                </h3>
+                <span className="text-[10px] text-slate-500">
+                  {fields.length} {fields.length === 1 ? 'setting' : 'settings'}
+                </span>
               </div>
-              <div>
-                <h4 className="text-base font-bold text-slate-100">Payment Gateway UPI ID</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5">UPI ID displayed to users inside mobile deposit sheets.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {fields.map((field) => {
+                  const Icon = field.icon;
+                  const tint = TINT_BG[field.iconTint] || TINT_BG.indigo;
+                  const value = values[field.key] ?? '';
+                  const fieldError = errors[field.key];
+                  const isDirty = value !== (original[field.key] ?? '');
+                  return (
+                    <div
+                      key={field.key}
+                      className="glass-panel p-6 rounded-2xl space-y-5 border border-slate-900/60"
+                    >
+                      <div className="flex items-start space-x-3 border-b border-slate-800 pb-4">
+                        <div className={`p-2 border rounded-xl ${tint}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-base font-bold text-slate-100 flex items-center space-x-2">
+                            <span>{field.label}</span>
+                            {isDirty && (
+                              <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                Unsaved
+                              </span>
+                            )}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                            {field.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                          Value
+                        </label>
+                        {field.kind === 'textarea' ? (
+                          <textarea
+                            value={value}
+                            onChange={(e) => updateValue(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            rows={4}
+                            className={`w-full bg-slate-900/60 border rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none placeholder-slate-700 transition-colors resize-y ${
+                              fieldError
+                                ? 'border-rose-500/60 focus:border-rose-500/80'
+                                : 'border-slate-800 focus:border-indigo-500/40'
+                            }`}
+                          />
+                        ) : (
+                          <input
+                            type={field.kind === 'number' ? 'number' : field.kind}
+                            value={value}
+                            min={field.min}
+                            max={field.max}
+                            placeholder={field.placeholder}
+                            onChange={(e) => updateValue(field.key, e.target.value)}
+                            className={`w-full bg-slate-900/60 border rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none placeholder-slate-700 transition-colors ${
+                              fieldError
+                                ? 'border-rose-500/60 focus:border-rose-500/80'
+                                : 'border-slate-800 focus:border-indigo-500/40'
+                            }`}
+                          />
+                        )}
+                        {fieldError && (
+                          <p className="text-[11px] text-rose-400 flex items-center space-x-1">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>{fieldError}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            </section>
+          );
+        })}
 
-            <div className="space-y-2">
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">UPI ID / VPA</label>
-              <input
-                type="text"
-                placeholder="pay@gateway"
-                value={paymentUpi}
-                onChange={(e) => setPaymentUpi(e.target.value)}
-                className="w-full bg-slate-900/60 border border-slate-800 focus:border-indigo-500/40 rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none placeholder-slate-700 transition-colors animate-fadeIn"
-                required
-              />
-            </div>
-
-            <div className="bg-slate-950/40 rounded-xl p-4 border border-slate-900/60 text-xs text-slate-400 leading-relaxed">
-              Ensure this UPI is linked to the primary settlement account. Double check spelling to prevent client transfer reconciliation delays.
-            </div>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 pt-4 border-t border-slate-900/80">
+          <div className="text-xs text-slate-500">
+            {hasChanges ? (
+              <span>
+                <span className="text-amber-300 font-semibold">{changedFields.length}</span>{' '}
+                unsaved {changedFields.length === 1 ? 'change' : 'changes'}
+              </span>
+            ) : (
+              <span>All settings up to date</span>
+            )}
           </div>
-
-          {/* Card 2: OTP Resend Delay */}
-          <div className="glass-panel p-6 rounded-2xl space-y-6">
-            <div className="flex items-center space-x-3 border-b border-slate-800 pb-4">
-              <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-slate-100">OTP Resend Delay</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5">Abuse protection rate limit timer in seconds.</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Timer Delay (Seconds)</label>
-              <input
-                type="number"
-                min={10}
-                max={300}
-                value={otpDelay}
-                onChange={(e) => setOtpDelay(parseInt(e.target.value, 10) || 30)}
-                className="w-full bg-slate-900/60 border border-slate-800 focus:border-indigo-500/40 rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none placeholder-slate-700 transition-colors animate-fadeIn"
-                required
-              />
-            </div>
-
-            <div className="bg-slate-950/40 rounded-xl p-4 border border-slate-900/60 text-xs text-slate-400 leading-relaxed">
-              Standard setting is 30 seconds. Higher numbers reduce OTP SMS consumption costs but may trigger user drop-off during onboarding.
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-4">
           <button
             type="submit"
-            disabled={saving}
-            className={`flex items-center justify-center space-x-2 px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl font-bold text-xs tracking-wider transition-all shadow-lg shadow-indigo-600/20 active:scale-98 ${
-              saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+            disabled={saving || !hasChanges}
+            className={`flex items-center justify-center space-x-2 px-8 py-3.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl font-bold text-xs tracking-wider transition-all shadow-lg shadow-indigo-600/20 ${
+              saving || !hasChanges ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-98'
             }`}
           >
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Saving System Changes...' : 'Save Parameters'}</span>
+            <span>{saving ? 'Saving…' : 'Save Parameters'}</span>
           </button>
         </div>
       </form>

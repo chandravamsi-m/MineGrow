@@ -1,9 +1,19 @@
-const BASE_URL = import.meta.env.VITE_BASE_URL;
+const configuredBaseUrl = import.meta.env.VITE_BASE_URL?.trim();
+const BASE_URL = (
+  configuredBaseUrl ||
+  (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '')
+).replace(/\/+$/, '');
 
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   message?: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
   error?: {
     code: string;
     message: string;
@@ -12,6 +22,16 @@ export interface ApiResponse<T = any> {
 }
 
 class ApiService {
+  private buildUrl(path: string): string {
+    if (!BASE_URL) {
+      throw new Error(
+        'Admin API base URL is not configured. Set VITE_BASE_URL to the backend /api/v1 URL.',
+      );
+    }
+
+    return `${BASE_URL}/${path.replace(/^\/+/, '')}`;
+  }
+
   private getHeaders(isMultipart = false): HeadersInit {
     const token = localStorage.getItem('admin_access_token');
     const headers: Record<string, string> = {};
@@ -53,7 +73,7 @@ class ApiService {
   }
 
   async get<T>(path: string): Promise<T> {
-    const response = await fetch(`${BASE_URL}/${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       method: 'GET',
       headers: this.getHeaders(),
     });
@@ -61,7 +81,7 @@ class ApiService {
   }
 
   async post<T>(path: string, body?: any): Promise<T> {
-    const response = await fetch(`${BASE_URL}/${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       method: 'POST',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
@@ -70,7 +90,7 @@ class ApiService {
   }
 
   async put<T>(path: string, body: any): Promise<T> {
-    const response = await fetch(`${BASE_URL}/${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       method: 'PUT',
       headers: this.getHeaders(),
       body: JSON.stringify(body),
@@ -79,7 +99,7 @@ class ApiService {
   }
 
   async patch<T>(path: string, body?: any): Promise<T> {
-    const response = await fetch(`${BASE_URL}/${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       method: 'PATCH',
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
@@ -88,7 +108,7 @@ class ApiService {
   }
 
   async delete<T>(path: string): Promise<T> {
-    const response = await fetch(`${BASE_URL}/${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
@@ -96,7 +116,7 @@ class ApiService {
   }
 
   async download(path: string): Promise<string> {
-    const response = await fetch(`${BASE_URL}/${path}`, {
+    const response = await fetch(this.buildUrl(path), {
       method: 'GET',
       headers: this.getHeaders(),
     });
