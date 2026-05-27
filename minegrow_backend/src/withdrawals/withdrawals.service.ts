@@ -16,6 +16,20 @@ import {
   getISTDateString,
   getISTDateTimeString,
 } from '../common/utils/date.utils';
+import {
+  buildPaginationMeta,
+  getPaginationWindow,
+  PaginationMeta,
+} from '../common/utils/pagination.utils';
+
+interface AdminWithdrawalFilters {
+  status?: string;
+  type?: string;
+  userId?: number;
+  page?: number;
+  limit?: number;
+  paginate?: boolean;
+}
 
 @Injectable()
 export class WithdrawalsService {
@@ -269,15 +283,19 @@ export class WithdrawalsService {
     );
   }
 
-  async getAllWithdrawals(filters: {
-    status?: string;
-    type?: string;
-    userId?: number;
-  }) {
+  async getAllWithdrawals(
+    filters: AdminWithdrawalFilters & { paginate: false },
+  ): Promise<any[]>;
+  async getAllWithdrawals(filters: AdminWithdrawalFilters): Promise<{
+    data: any[];
+    pagination: PaginationMeta;
+  }>;
+  async getAllWithdrawals(filters: AdminWithdrawalFilters) {
+    const pagination = getPaginationWindow(filters.page, filters.limit, 50, 100);
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from('withdrawals')
-      .select('*, users(full_name, mobile)');
+      .select('*, users(full_name, mobile)', { count: 'exact' });
 
     if (filters.status) {
       const dbStatus =
@@ -291,9 +309,13 @@ export class WithdrawalsService {
       query = query.eq('user_id', filters.userId);
     }
 
-    const { data: withdrawals, error } = await query.order('requested_at', {
-      ascending: false,
-    });
+    let orderedQuery = query.order('requested_at', { ascending: false });
+
+    if (filters.paginate !== false) {
+      orderedQuery = orderedQuery.range(pagination.from, pagination.to);
+    }
+
+    const { data: withdrawals, count, error } = await orderedQuery;
 
     if (error) {
       this.logger.error('Error fetching admin withdrawals:', error);
@@ -302,12 +324,24 @@ export class WithdrawalsService {
       );
     }
 
-    return (
+    const mappedWithdrawals =
       withdrawals?.map((w) => ({
         ...w,
         status: w.status === 'requested' ? 'pending' : w.status,
-      })) || []
-    );
+      })) || [];
+
+    if (filters.paginate === false) {
+      return mappedWithdrawals;
+    }
+
+    return {
+      data: mappedWithdrawals,
+      pagination: buildPaginationMeta(
+        pagination.page,
+        pagination.limit,
+        count || 0,
+      ),
+    };
   }
 
   async getPendingWithdrawals() {
@@ -316,7 +350,8 @@ export class WithdrawalsService {
       .from('withdrawals')
       .select('*, users(full_name, mobile)')
       .eq('status', 'requested')
-      .order('requested_at', { ascending: false });
+      .order('requested_at', { ascending: false })
+      .limit(50);
 
     if (error) {
       throw new InternalServerErrorException('Error loading pending queue');

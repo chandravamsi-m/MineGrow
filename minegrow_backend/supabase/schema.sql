@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
     address TEXT,
     status VARCHAR(20) DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'suspended', 'pending_kyc')),
     kyc_verified BOOLEAN DEFAULT false NOT NULL,
+    token_version INTEGER DEFAULT 1 NOT NULL,
     notification_preferences JSONB DEFAULT '{"push": true, "investments": true, "wallet": true, "promotions": false}'::jsonb NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -46,8 +47,12 @@ CREATE TABLE IF NOT EXISTS admins (
     is_super BOOLEAN DEFAULT false NOT NULL,
     created_by INTEGER REFERENCES admins(id) ON DELETE SET NULL,
     status VARCHAR(20) DEFAULT 'active' NOT NULL CHECK (status IN ('active', 'inactive')),
+    token_version INTEGER DEFAULT 1 NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE app_config
+    ADD COLUMN IF NOT EXISTS updated_by_admin INTEGER REFERENCES admins(id) ON DELETE SET NULL;
 
 -- 3. Create 'investment_plan' table (Single row plan metadata)
 CREATE TABLE IF NOT EXISTS investment_plan (
@@ -169,7 +174,18 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
 );
 
 -- Add bank account foreign key to withdrawals
-ALTER TABLE withdrawals ADD CONSTRAINT fk_withdrawals_bank_account FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fk_withdrawals_bank_account'
+  ) THEN
+    ALTER TABLE withdrawals
+      ADD CONSTRAINT fk_withdrawals_bank_account
+      FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- 10. Create 'kyc_documents' table
 CREATE TABLE IF NOT EXISTS kyc_documents (
@@ -231,6 +247,9 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- 15. Create indexes for performance optimization
 CREATE INDEX IF NOT EXISTS idx_users_mobile ON users(mobile);
 CREATE INDEX IF NOT EXISTS idx_investments_status ON investments(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_investments_utr_number_unique
+ON investments (lower(utr_number))
+WHERE utr_number IS NOT NULL AND utr_number <> '';
 CREATE INDEX IF NOT EXISTS idx_roi_history_credited_date ON roi_history(credited_date);
 CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON withdrawals(status);
 CREATE INDEX IF NOT EXISTS idx_otps_mobile_expires_at ON otps(mobile, expires_at);
@@ -392,7 +411,38 @@ BEGIN
 END;
 $$;
 
--- RPC 3: adjust_user_wallet
+-- RPC 3: increment_token_version (invalidates existing JWT sessions)
+CREATE OR REPLACE FUNCTION increment_token_version(
+  p_table TEXT,
+  p_user_id INTEGER
+) RETURNS INTEGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_next_version INTEGER;
+BEGIN
+  IF p_table = 'users' THEN
+    UPDATE users
+    SET token_version = token_version + 1,
+        updated_at = NOW()
+    WHERE id = p_user_id
+    RETURNING token_version INTO v_next_version;
+  ELSIF p_table = 'admins' THEN
+    UPDATE admins
+    SET token_version = token_version + 1
+    WHERE id = p_user_id
+    RETURNING token_version INTO v_next_version;
+  ELSE
+    RAISE EXCEPTION 'Invalid token version table';
+  END IF;
+
+  IF v_next_version IS NULL THEN
+    RAISE EXCEPTION 'Account not found';
+  END IF;
+
+  RETURN v_next_version;
+END;
+$$;
+
+-- RPC 4: adjust_user_wallet
 CREATE OR REPLACE FUNCTION adjust_user_wallet(
   p_admin_id INTEGER,
   p_user_id INTEGER,

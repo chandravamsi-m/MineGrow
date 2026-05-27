@@ -68,12 +68,16 @@ export class InvestmentsController {
     @Query('status') status?: string,
     @Query('userId') userId?: string,
     @Query('date') date?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const userFilter = userId ? parseInt(userId, 10) : undefined;
     return this.investmentsService.getAllInvestments({
       status,
       userId: userFilter,
       date,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 
