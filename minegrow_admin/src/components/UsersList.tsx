@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -124,6 +124,14 @@ export const UsersList: React.FC = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [walletAdjustment, setWalletAdjustment] = useState<WalletAdjustmentForm>(emptyWalletAdjustment);
   const [walletAdjusting, setWalletAdjusting] = useState(false);
+
+  const drawerBodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (drawerBodyRef.current) {
+      drawerBodyRef.current.scrollTop = 0;
+    }
+  }, [drawerTab, selectedUser]);
 
   useEffect(() => {
     if (selectedUser?.kyc_document_url) {
@@ -736,7 +744,7 @@ export const UsersList: React.FC = () => {
               </div>
 
               {/* Body */}
-              <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar min-h-0">
+              <div ref={drawerBodyRef} className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar min-h-0">
                 {detailsLoading ? (
                   <div className="space-y-6 animate-pulse">
                     <div className="bg-slate-900/20 rounded-xl p-4 border border-slate-900 h-28 space-y-3">

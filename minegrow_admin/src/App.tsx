@@ -64,6 +64,11 @@ const MainAppContent: React.FC = () => {
     return () => window.removeEventListener('hashchange', onHashChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Scroll to top on active page/tab change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
   
   // Login form states
   const [email, setEmail] = useState('');
