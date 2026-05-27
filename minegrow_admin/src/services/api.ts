@@ -12,6 +12,12 @@ export interface ApiResponse<T = any> {
 }
 
 class ApiService {
+  private onUnauthorizedCallback: (() => void) | null = null;
+
+  registerOnUnauthorized(callback: () => void) {
+    this.onUnauthorizedCallback = callback;
+  }
+
   private getHeaders(isMultipart = false): HeadersInit {
     const token = localStorage.getItem('admin_access_token');
     const headers: Record<string, string> = {};
@@ -29,6 +35,9 @@ class ApiService {
       // Automatic session cleanup on unauthorized — React state handles showing the login page
       localStorage.removeItem('admin_access_token');
       localStorage.removeItem('admin_user');
+      if (this.onUnauthorizedCallback) {
+        this.onUnauthorizedCallback();
+      }
       throw new Error('Session expired. Please log in again.');
     }
 
