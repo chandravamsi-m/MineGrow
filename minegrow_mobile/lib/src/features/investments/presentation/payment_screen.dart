@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
@@ -51,6 +52,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       _proofFile = result.files.single;
       _errorText = null;
     });
+  }
+
+  Future<void> _openUpiApp(String upiDeepLink) async {
+    final opened = await launchUrl(
+      Uri.parse(upiDeepLink),
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open a UPI app.')),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -158,6 +172,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             upiDeepLink: upiDeepLink,
             upiId: upiId,
             amount: amount,
+            onOpenUpiApp: () => _openUpiApp(upiDeepLink),
           ),
           const SizedBox(height: 24),
           MGTextField(
@@ -282,11 +297,13 @@ class _QRPaymentCard extends StatelessWidget {
     required this.upiDeepLink,
     required this.upiId,
     required this.amount,
+    required this.onOpenUpiApp,
   });
 
   final String upiDeepLink;
   final String upiId;
   final num amount;
+  final VoidCallback onOpenUpiApp;
 
   @override
   Widget build(BuildContext context) {
@@ -315,6 +332,12 @@ class _QRPaymentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+          MGGradientButton(
+            label: 'Open UPI App',
+            icon: Icons.open_in_new,
+            onPressed: onOpenUpiApp,
+          ),
+          const SizedBox(height: 12),
           _UpiIdRow(upiId: upiId),
           const SizedBox(height: 12),
           MGInlineMessage(

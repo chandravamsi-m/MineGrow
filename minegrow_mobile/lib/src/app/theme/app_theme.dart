@@ -24,7 +24,6 @@ abstract final class AppTheme {
       brightness: Brightness.dark,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: tokens.background,
-      fontFamily: 'Inter',
       extensions: const [tokens, metrics],
       textTheme: const TextTheme(
         displaySmall: TextStyle(
