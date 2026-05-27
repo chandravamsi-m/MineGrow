@@ -14,6 +14,15 @@ import {
   Calendar,
 } from 'lucide-react';
 
+interface LastRoiRun {
+  ranAt: string;
+  status: 'success' | 'failed';
+  source: 'manual' | 'cron';
+  creditedDate: string | null;
+  creditsIssued: number | null;
+  auditId: number;
+}
+
 interface DashboardStats {
   totalActiveUsers: number;
   totalActiveInvestments: number;
@@ -23,7 +32,21 @@ interface DashboardStats {
   pendingWithdrawalRequestsCount: number;
   activePrincipalLockSum: number;
   totalDailyRoiDistributed: number;
+  lastRoiRun: LastRoiRun | null;
 }
+
+const formatRelativeTime = (iso: string): string => {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return iso;
+  const diffSec = Math.round((Date.now() - then) / 1000);
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const m = Math.round(diffSec / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+};
 
 interface DashboardProps {
   setActiveTab?: (tab: string) => void;
@@ -245,6 +268,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
             </ul>
           </div>
 
+          {stats?.lastRoiRun && (
+            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start space-x-3">
+                <div
+                  className={`mt-0.5 p-1.5 rounded-lg border ${
+                    stats.lastRoiRun.status === 'success'
+                      ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                      : 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+                  }`}
+                >
+                  {stats.lastRoiRun.status === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">
+                    Last ROI Run
+                  </p>
+                  <p className="text-sm text-slate-200">
+                    <span className="font-semibold">
+                      {formatRelativeTime(stats.lastRoiRun.ranAt)}
+                    </span>
+                    <span className="text-slate-500">
+                      {' · '}
+                      {new Date(stats.lastRoiRun.ranAt).toLocaleString()}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {stats.lastRoiRun.source === 'manual' ? 'Manual trigger' : 'Scheduled cron'}
+                    {stats.lastRoiRun.creditedDate &&
+                      ` · credited ${stats.lastRoiRun.creditedDate}`}
+                    {stats.lastRoiRun.creditsIssued !== null &&
+                      ` · ${stats.lastRoiRun.creditsIssued} credits`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab?.('ledger')}
+                disabled={!setActiveTab}
+                className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-indigo-500/40 text-indigo-300 hover:text-indigo-200 transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                View in audit ledger →
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center sm:space-x-4 space-y-4 sm:space-y-0 pt-2">
             <button
               onClick={triggerDailyRoi}
@@ -256,7 +327,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
               <Play className="w-4 h-4 fill-white animate-pulse" />
               <span>{roiTriggering ? 'Executing Payout Routine...' : 'Trigger Daily ROI Payout'}</span>
             </button>
-            
+
             {roiTriggering && (
               <span className="text-xs text-indigo-400 animate-pulse font-medium">Processing database ledger accounts...</span>
             )}

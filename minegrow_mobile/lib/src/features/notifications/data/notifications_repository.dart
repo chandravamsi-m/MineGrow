@@ -26,4 +26,11 @@ class NotificationsRepository {
           .toList(growable: false),
     );
   }
+
+  Future<ApiNotification> markAsRead(int id) {
+    return _apiClient.patchData<ApiNotification>(
+      '/notifications/$id/read',
+      parser: ApiNotification.fromJson,
+    );
+  }
 }

@@ -203,7 +203,7 @@ The admin panel expects the backend to be reachable; configure the API base URL 
 ```powershell
 cd minegrow_mobile
 flutter pub get
-# create .env next to pubspec.yaml with API_BASE_URL=http://10.0.2.2:3000/api/v1 (Android emulator)
+# create .env next to pubspec.yaml with API_BASE_URL=http://10.0.2.2:3000 (Android emulator)
 flutter run          # picks first connected device/emulator
 ```
 
@@ -251,7 +251,8 @@ SMS_SENDER_ID=...
 ### Mobile `.env` (in `minegrow_mobile/`)
 
 ```env
-API_BASE_URL=http://10.0.2.2:3000/api/v1
+API_BASE_URL=http://10.0.2.2:3000
+API_VERSION=api/v1
 ```
 
 Loaded via `flutter_dotenv` and bundled as an asset (see `pubspec.yaml` `assets:` section).
