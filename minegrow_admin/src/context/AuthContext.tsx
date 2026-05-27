@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
 
 export interface AdminUser {
@@ -13,6 +13,8 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  sessionError: string | null;
+  clearSessionError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,9 +35,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
   const [loading, setLoading] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.registerOnUnauthorized(() => {
+      setAdmin(null);
+      setSessionError('Session expired. Please log in again.');
+    });
+  }, []);
+
+  const clearSessionError = () => {
+    setSessionError(null);
+  };
 
   const login = async (email: string, password: string) => {
     setLoading(true);
+    setSessionError(null);
     try {
       const response = await api.post<any>('auth/admin/login', { email, password });
       if (response.success && response.data) {
@@ -61,12 +76,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('admin_access_token');
       localStorage.removeItem('admin_user');
       setAdmin(null);
+      setSessionError(null);
       setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ admin, loading, login, logout }}>
+    <AuthContext.Provider value={{ admin, loading, login, logout, sessionError, clearSessionError }}>
       {children}
     </AuthContext.Provider>
   );
