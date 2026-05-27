@@ -60,7 +60,7 @@ class MGScaffold extends StatelessWidget {
     }
 
     return PopScope(
-      canPop: false,
+      canPop: context.canPop(),
       onPopInvokedWithResult: (didPop, result) {
         if (didPop || backFallbackRoute == null) {
           return;
