@@ -99,7 +99,28 @@ export class FcmService implements OnModuleInit {
       this.logger.error(`Exception writing notification to DB:`, dbErr);
     }
 
-    // 2. Fetch active device tokens
+    // 2. Respect user notification preferences before push dispatch.
+    const { data: userPrefs, error: prefsError } = await supabase
+      .from('users')
+      .select('notification_preferences')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (prefsError) {
+      this.logger.warn(
+        `Could not load notification preferences for user ${userId}; skipping push dispatch.`,
+      );
+      return;
+    }
+
+    if (!this.shouldDispatchPush(dbType, userPrefs?.notification_preferences)) {
+      this.logger.log(
+        `Push notification skipped by preferences for user ${userId} and type ${dbType}`,
+      );
+      return;
+    }
+
+    // 3. Fetch active device tokens
     const { data: tokens, error } = await supabase
       .from('device_tokens')
       .select('fcm_token')
@@ -152,5 +173,40 @@ export class FcmService implements OnModuleInit {
         `[FCM SIMULATION] User: ${userId} | Device Tokens: [${tokenStrings.join(', ')}] | Message: [${title}] ${body}`,
       );
     }
+  }
+
+  private shouldDispatchPush(type: string, preferences: any): boolean {
+    const prefs = {
+      push: true,
+      investments: true,
+      wallet: true,
+      promotions: false,
+      ...(preferences || {}),
+    };
+
+    if (prefs.push === false) return false;
+
+    if (
+      [
+        'roi_credit',
+        'deposit_approved',
+        'deposit_rejected',
+        'investment_matured',
+      ].includes(type)
+    ) {
+      return prefs.investments !== false;
+    }
+
+    if (
+      [
+        'withdrawal_approved',
+        'withdrawal_completed',
+        'withdrawal_rejected',
+      ].includes(type)
+    ) {
+      return prefs.wallet !== false;
+    }
+
+    return true;
   }
 }
