@@ -199,15 +199,28 @@ export class UsersService {
     const supabase = this.supabaseService.getClient();
 
     const accountType = dto.accountType || dto.account_type;
-    const bankName = dto.bankName || dto.bank_name;
-    const accountNumber = dto.accountNumber || dto.account_number;
-    const ifscCode = dto.ifscCode || dto.ifsc_code;
-    const accountHolder = dto.accountHolder || dto.account_holder;
-    const upiId = dto.upiId || dto.upi_id;
+    const bankName = (dto.bankName || dto.bank_name)?.trim();
+    const accountNumber = (dto.accountNumber || dto.account_number)?.trim();
+    const ifscCode = (dto.ifscCode || dto.ifsc_code)?.trim().toUpperCase();
+    const accountHolder = (dto.accountHolder || dto.account_holder)?.trim();
+    const upiId = (dto.upiId || dto.upi_id)?.trim();
     const isDefaultInput = dto.isDefault !== undefined ? dto.isDefault : dto.is_default;
 
     if (!accountType || !['bank', 'upi'].includes(accountType)) {
       throw new BadRequestException('Account type must be "bank" or "upi"');
+    }
+
+    if (
+      accountType === 'bank' &&
+      (!bankName || !accountNumber || !ifscCode || !accountHolder)
+    ) {
+      throw new BadRequestException(
+        'Bank accounts require bank name, account number, IFSC code, and account holder name',
+      );
+    }
+
+    if (accountType === 'upi' && !upiId) {
+      throw new BadRequestException('UPI accounts require a UPI ID');
     }
 
     // 1. If this is the first account, force it to be default

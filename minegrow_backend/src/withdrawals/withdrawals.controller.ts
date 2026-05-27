@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AuditService } from '../audit/audit.service';
 import {
   CreateWithdrawalDto,
   RejectWithdrawalDto,
@@ -24,7 +25,10 @@ import {
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class WithdrawalsController {
-  constructor(private readonly withdrawalsService: WithdrawalsService) {}
+  constructor(
+    private readonly withdrawalsService: WithdrawalsService,
+    private readonly auditService: AuditService,
+  ) {}
 
   @Get('withdrawals/eligibility')
   @Roles('USER')
@@ -62,12 +66,16 @@ export class WithdrawalsController {
     @Query('status') status?: string,
     @Query('type') type?: string,
     @Query('userId') userId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const userFilter = userId ? parseInt(userId, 10) : undefined;
     return this.withdrawalsService.getAllWithdrawals({
       status,
       type,
       userId: userFilter,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 
@@ -127,13 +135,30 @@ export class WithdrawalsController {
   @Get('admin/withdrawals/export')
   @Roles('ADMIN')
   async exportWithdrawals(
+    @CurrentUser() admin: any,
     @Query('status') status: string,
     @Query('type') type: string,
+    @Query('reason') reason: string,
+    @Req() req: any,
     @Res() res: any,
   ) {
+    const trimmedReason = (reason || '').trim();
+    if (trimmedReason.length < 5) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        success: false,
+        error: {
+          code: 'EXPORT_REASON_REQUIRED',
+          message:
+            'A reason of at least 5 characters is required to export payout PII for audit purposes.',
+          statusCode: HttpStatus.BAD_REQUEST,
+        },
+      });
+    }
+
     const data = await this.withdrawalsService.getAllWithdrawals({
       status,
       type,
+      paginate: false,
     });
 
     // Build standard CSV
@@ -151,8 +176,25 @@ export class WithdrawalsController {
       csv += `${row.id},${row.user_id},"${escName}","${escMobile}",${row.amount},${row.withdrawal_type},${row.status},"${escBank}","${escAcc}","${escIfsc}","${escUpi}",${row.requested_at}\n`;
     }
 
+    // Audit the bulk PII export — required for compliance
+    const ip = req.ip || req.socket?.remoteAddress;
+    await this.auditService.log(
+      'admin',
+      admin.id,
+      'EXPORT_WITHDRAWALS_CSV',
+      null,
+      null,
+      {
+        filters: { status: status || null, type: type || null },
+        rowCount: data.length,
+        reason: trimmedReason,
+      },
+      ip,
+    );
+
+    const stamp = Date.now();
     res.header('Content-Type', 'text/csv');
-    res.attachment(`withdrawals_export_${Date.now()}.csv`);
+    res.attachment(`withdrawals_export_admin${admin.id}_${stamp}.csv`);
     return res.status(HttpStatus.OK).send(csv);
   }
 }

@@ -48,4 +48,17 @@ void main() {
       'promotions': true,
     });
   });
+
+  test('upiAccountPayload omits bank-only fields for UPI accounts', () {
+    expect(upiAccountPayload(upiId: 'client@oksbi'), {
+      'account_type': 'upi',
+      'upi_id': 'client@oksbi',
+    });
+
+    expect(upiAccountPayload(upiId: 'client@oksbi', accountHolder: '  Client  '), {
+      'account_type': 'upi',
+      'upi_id': 'client@oksbi',
+      'account_holder': 'Client',
+    });
+  });
 }

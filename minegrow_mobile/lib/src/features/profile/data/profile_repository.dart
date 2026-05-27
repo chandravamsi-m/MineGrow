@@ -130,14 +130,7 @@ class ProfileRepository {
   Future<BankAccount> addUpiId({required String upiId, String? accountHolder}) {
     return _apiClient.postData<BankAccount>(
       '/users/bank-accounts',
-      data: {
-        'account_type': 'upi',
-        'upi_id': upiId,
-        'bank_name': 'UPI',
-        'account_number': upiId,
-        'ifsc_code': '',
-        'account_holder': ?accountHolder,
-      },
+      data: upiAccountPayload(upiId: upiId, accountHolder: accountHolder),
       parser: BankAccount.fromJson,
     );
   }
@@ -199,6 +192,23 @@ Map<String, bool> notificationPreferencesPayload(
   NotificationPreferences preferences,
 ) {
   return preferences.toJson();
+}
+
+Map<String, String> upiAccountPayload({
+  required String upiId,
+  String? accountHolder,
+}) {
+  final payload = <String, String>{
+    'account_type': 'upi',
+    'upi_id': upiId,
+  };
+
+  final holder = accountHolder?.trim();
+  if (holder != null && holder.isNotEmpty) {
+    payload['account_holder'] = holder;
+  }
+
+  return payload;
 }
 
 List<KycDocument> parseKycDocuments(Object? json) {

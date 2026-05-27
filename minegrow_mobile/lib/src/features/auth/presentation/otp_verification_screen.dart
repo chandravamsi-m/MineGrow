@@ -10,6 +10,7 @@ import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../notifications/data/push_notifications_service.dart';
 import '../data/auth_repository.dart';
 
 class OtpVerificationScreen extends ConsumerStatefulWidget {
@@ -38,15 +39,18 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   }
 
   Future<void> _loadSavedMobile() async {
-    final mobile = await ref.read(authRepositoryProvider).readSavedMobileAsync();
+    final mobile = await ref
+        .read(authRepositoryProvider)
+        .readSavedMobileAsync();
     if (mounted) setState(() => _savedMobile = mobile);
   }
 
   /// Reads the resend cooldown that was stored when the OTP was dispatched,
   /// then starts the countdown. This avoids a hardcoded 30-second value.
   Future<void> _loadDelayAndStartTimer() async {
-    final delay =
-        await ref.read(authRepositoryProvider).readSavedOtpResendDelayAsync();
+    final delay = await ref
+        .read(authRepositoryProvider)
+        .readSavedOtpResendDelayAsync();
     if (!mounted) return;
     _secondsRemaining = delay;
     _startResendTimer();
@@ -84,8 +88,10 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     });
     try {
       final auth = ref.read(authRepositoryProvider);
-      final delay =
-          await auth.sendOtp(mobile: mobile, purpose: auth.readSavedOtpPurpose());
+      final delay = await auth.sendOtp(
+        mobile: mobile,
+        purpose: auth.readSavedOtpPurpose(),
+      );
       if (mounted) {
         _otpController.clear();
         _secondsRemaining = delay;
@@ -128,6 +134,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         otp: otp,
         purpose: auth.readSavedOtpPurpose(),
       );
+      await ref.read(pushNotificationsServiceProvider).registerCurrentDevice();
       if (mounted) {
         if (session.isNewUser) {
           context.go(AppRoutes.onboarding);
@@ -166,12 +173,24 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     final rawMobile = _savedMobile ?? '';
     final displayMobile = _formatMobile(rawMobile);
 
+    // Compute a pin-box size that fits the available width on narrow phones.
+    // 6 boxes + 5 separators (each ~half the box width) must fit inside the
+    // content column. Falls back to the prior 48x58 size on roomy screens.
+    final double availableWidth =
+        MediaQuery.of(context).size.width - (metrics.screenPadding * 2);
+    final double separatorRatio = 0.18; // separator = ratio × box width
+    final double maxBoxWidth = availableWidth / (6 + (5 * separatorRatio));
+    final double boxWidth = maxBoxWidth.clamp(36.0, 48.0);
+    final double boxHeight = boxWidth * (58.0 / 48.0);
+    final double separator = boxWidth * separatorRatio;
+
     final defaultPinTheme = PinTheme(
-      width: 48,
-      height: 58,
+      width: boxWidth,
+      height: boxHeight,
       textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
         color: tokens.textPrimary,
         fontWeight: FontWeight.w700,
+        fontSize: boxWidth * 0.46,
       ),
       decoration: BoxDecoration(
         color: tokens.surfaceElevated,
@@ -316,7 +335,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                       errorPinTheme: errorPinTheme,
                       forceErrorState: _errorText != null,
                       closeKeyboardWhenCompleted: false,
-                      separatorBuilder: (index) => const SizedBox(width: 10),
+                      separatorBuilder: (index) => SizedBox(width: separator),
                       onChanged: (_) {
                         if (_errorText != null) {
                           setState(() => _errorText = null);
@@ -344,11 +363,8 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                               const SizedBox(width: 6),
                               Text(
                                 'Resend code in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodyMedium?.copyWith(
-                                  color: tokens.textSecondary,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: tokens.textSecondary),
                               ),
                             ],
                           )

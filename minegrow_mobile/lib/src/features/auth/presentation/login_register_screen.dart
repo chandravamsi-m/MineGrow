@@ -1,12 +1,15 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/widgets/mg_widgets.dart';
+import '../../app_config/data/app_config_repository.dart';
 import '../data/auth_repository.dart';
 
 class LoginRegisterScreen extends ConsumerStatefulWidget {
@@ -26,6 +29,17 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
   void dispose() {
     _phoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openExternalUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open $url')),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -165,13 +179,8 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                     const SizedBox(height: 24),
 
                     Center(
-                      child: Text(
-                        'By continuing you agree to our Terms & Privacy Policy',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: tokens.textMuted,
-                          height: 1.5,
-                        ),
+                      child: _LegalConsentText(
+                        onOpen: _openExternalUrl,
                       ),
                     ),
 
@@ -183,6 +192,56 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LegalConsentText extends ConsumerWidget {
+  const _LegalConsentText({required this.onOpen});
+
+  final Future<void> Function(String url) onOpen;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = context.tokens;
+    final base = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: tokens.textMuted,
+          height: 1.5,
+        );
+    final link = base?.copyWith(
+      color: tokens.brandGold,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+    );
+
+    // Falls back to the env defaults when the remote config has not loaded yet,
+    // so the links are always functional rather than disabled while pending.
+    final config = ref.watch(appConfigProvider).maybeWhen(
+          data: (value) => value,
+          orElse: RemoteAppConfig.fallback,
+        );
+
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          const TextSpan(text: 'By continuing you agree to our '),
+          TextSpan(
+            text: 'Terms',
+            style: link,
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => onOpen(config.termsUrl),
+          ),
+          const TextSpan(text: ' & '),
+          TextSpan(
+            text: 'Privacy Policy',
+            style: link,
+            recognizer: TapGestureRecognizer()
+              ..onTap = () => onOpen(config.privacyUrl),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }
