@@ -16,60 +16,79 @@ class NotificationsScreen extends ConsumerWidget {
     return MGScaffold(
       appBar: const MGAppBar(title: 'Notifications', showBack: true),
       mainNavigationIndex: 4,
-      body: Column(
-        children: [
-          notificationsState.when(
-            loading: () => const MGLoadingList(),
-            error: (error, stackTrace) => MGFriendlyState(
-              icon: Icons.notifications_off_outlined,
-              title: 'Notifications unavailable',
-              message:
-                  'We could not refresh your notifications. Try again later.',
-              actionLabel: 'Retry',
-              onAction: () => ref.invalidate(notificationsProvider),
-            ),
-            data: (items) {
-              if (items.isEmpty) {
-                return const MGFriendlyState(
-                  icon: Icons.notifications_none,
-                  title: 'You are all caught up',
-                  message:
-                      'Important ROI, deposit, withdrawal, and maintenance updates will appear here.',
-                );
-              }
-              return Column(
-                children: [
-                  for (final item in items) ...[
-                    _NotificationCard(
-                      item: item,
-                      onTap: item.isRead
-                          ? null
-                          : () async {
-                              try {
-                                await ref
-                                    .read(notificationsRepositoryProvider)
-                                    .markAsRead(item.id);
-                                ref.invalidate(notificationsProvider);
-                              } catch (_) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Could not mark notification as read.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+      scrollable: false,
+      body: RefreshIndicator(
+        color: context.tokens.brandGold,
+        backgroundColor: context.tokens.surface,
+        onRefresh: () async {
+          ref.invalidate(notificationsProvider);
+          await ref.read(notificationsProvider.future);
+        },
+        child: notificationsState.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [MGLoadingList()],
+          ),
+          error: (error, stackTrace) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              MGFriendlyState(
+                icon: Icons.notifications_off_outlined,
+                title: 'Notifications unavailable',
+                message:
+                    'We could not refresh your notifications. Try again later.',
+                actionLabel: 'Retry',
+                onAction: () => ref.invalidate(notificationsProvider),
+              ),
+            ],
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  MGFriendlyState(
+                    icon: Icons.notifications_none,
+                    title: 'You are all caught up',
+                    message:
+                        'Important ROI, deposit, withdrawal, and maintenance updates will appear here.',
+                  ),
                 ],
               );
-            },
-          ),
-        ],
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return _NotificationCard(
+                  item: item,
+                  onTap: item.isRead
+                      ? null
+                      : () async {
+                          try {
+                            await ref
+                                .read(notificationsRepositoryProvider)
+                                .markAsRead(item.id);
+                            ref.invalidate(notificationsProvider);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not mark notification as read.',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
