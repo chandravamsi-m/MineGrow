@@ -18,6 +18,10 @@ import {
   getISTDateString,
   getISTDateTimeString,
 } from '../common/utils/date.utils';
+import {
+  buildPaginationMeta,
+  getPaginationWindow,
+} from '../common/utils/pagination.utils';
 
 @Injectable()
 export class InvestmentsService {
@@ -68,6 +72,28 @@ export class InvestmentsService {
       );
     }
 
+    const utrNumber = dto.utrNumber?.trim().toUpperCase() || null;
+    if (utrNumber) {
+      const { data: duplicate, error: duplicateError } = await supabase
+        .from('investments')
+        .select('id')
+        .eq('utr_number', utrNumber)
+        .maybeSingle();
+
+      if (duplicateError) {
+        this.logger.error('Failed to check duplicate UTR:', duplicateError);
+        throw new InternalServerErrorException(
+          'Error validating transaction reference',
+        );
+      }
+
+      if (duplicate) {
+        throw new BadRequestException(
+          'This UTR number has already been submitted for review',
+        );
+      }
+    }
+
     // 4. Upload payment screenshot proof
     const storagePath = await this.uploadsService.uploadFile(
       userId,
@@ -86,13 +112,19 @@ export class InvestmentsService {
         daily_roi_pct: plan.daily_roi_pct,
         lock_days: plan.lock_days,
         payment_proof_url: storagePath,
-        utr_number: dto.utrNumber || null,
+        utr_number: utrNumber,
         status: 'pending',
       })
       .select('*')
       .single();
 
     if (insertError || !investment) {
+      if (insertError?.code === '23505') {
+        throw new BadRequestException(
+          'This UTR number has already been submitted for review',
+        );
+      }
+
       this.logger.error('Failed to create investment record:', insertError);
       throw new InternalServerErrorException(
         'Error submitting investment request',
@@ -165,11 +197,16 @@ export class InvestmentsService {
     status?: string;
     userId?: number;
     date?: string;
+    page?: number;
+    limit?: number;
   }) {
+    const pagination = getPaginationWindow(filters.page, filters.limit, 50, 100);
     const supabase = this.supabaseService.getClient();
     let query = supabase
       .from('investments')
-      .select('*, users(full_name, mobile), investment_plan(plan_name)');
+      .select('*, users(full_name, mobile), investment_plan(plan_name)', {
+        count: 'exact',
+      });
 
     if (filters.status) {
       query = query.eq('status', filters.status);
@@ -183,9 +220,13 @@ export class InvestmentsService {
         .lte('created_at', `${filters.date}T23:59:59.999Z`);
     }
 
-    const { data: investments, error } = await query.order('created_at', {
-      ascending: false,
-    });
+    const {
+      data: investments,
+      count,
+      error,
+    } = await query
+      .order('created_at', { ascending: false })
+      .range(pagination.from, pagination.to);
 
     if (error) {
       this.logger.error('Error fetching admin investments:', error);
@@ -194,7 +235,7 @@ export class InvestmentsService {
       );
     }
 
-    return investments?.map((inv: any) => {
+    const mappedInvestments = investments?.map((inv: any) => {
       let planName = 'Starter Plan';
       if (inv.investment_plan) {
         planName = Array.isArray(inv.investment_plan)
@@ -210,6 +251,15 @@ export class InvestmentsService {
         },
       };
     }) || [];
+
+    return {
+      data: mappedInvestments,
+      pagination: buildPaginationMeta(
+        pagination.page,
+        pagination.limit,
+        count || 0,
+      ),
+    };
   }
 
   async getPendingInvestments() {
@@ -218,7 +268,8 @@ export class InvestmentsService {
       .from('investments')
       .select('*, users(full_name, mobile), investment_plan(plan_name)')
       .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (error) {
       throw new InternalServerErrorException('Error loading pending deposits');

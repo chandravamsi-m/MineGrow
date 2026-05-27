@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "114781068680",
+    "project_id": "mine-grow",
+    "storage_bucket": "mine-grow.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:114781068680:android:da214de2ffe24e14de2e3d",
+        "android_client_info": {
+          "package_name": "com.minegrow.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATnAlKDfCyb-PpO2NOsR6_G0DNYLBwZd8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
