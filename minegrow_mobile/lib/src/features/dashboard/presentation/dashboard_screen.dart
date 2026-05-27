@@ -55,7 +55,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       0,
       (sum, item) => sum + item.amount,
     );
-    final hasActivePlan = activePlans > 0 || wallet.totalBalance > 0;
+    final hasActivePlan = activePlans > 0;
     final lockProgress = _lockProgress(investments);
 
     final screenPad = context.metrics.screenPadding;
@@ -113,11 +113,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             Expanded(
                               child: Text(
                                 'Total Wallet Balance',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
+                                style: Theme.of(context).textTheme.labelSmall
                                     ?.copyWith(
-                                        color: context.tokens.textSecondary),
+                                      color: context.tokens.textSecondary,
+                                    ),
                               ),
                             ),
                             const Icon(Icons.visibility_outlined, size: 18),
@@ -194,11 +193,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ),
                       child: Text(
                         'View All',
-                        style:
-                            Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: context.tokens.brandGold,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: context.tokens.brandGold,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -220,17 +218,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             children: [
                               Text(
                                 'Principal Unlock',
-                                style:
-                                    Theme.of(context).textTheme.titleMedium,
+                                style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Track active plans from Investments',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
+                                style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
-                                        color: context.tokens.textSecondary),
+                                      color: context.tokens.textSecondary,
+                                    ),
                               ),
                               const SizedBox(height: 18),
                               MGProgressBar(value: lockProgress),
@@ -239,11 +235,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 lockProgress >= 1.0
                                     ? 'Lock period complete — withdrawal available'
                                     : '${(lockProgress * 100).round()}% of lock period elapsed',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelSmall
+                                style: Theme.of(context).textTheme.labelSmall
                                     ?.copyWith(
-                                        color: context.tokens.textSecondary),
+                                      color: context.tokens.textSecondary,
+                                    ),
                               ),
                             ],
                           ),
@@ -304,10 +299,9 @@ class _BalanceMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: context.tokens.textSecondary),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: context.tokens.textSecondary),
         ),
         const SizedBox(height: 4),
         FittedBox(
