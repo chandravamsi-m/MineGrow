@@ -28,6 +28,11 @@ class ApiService {
     this.onUnauthorizedCallback = callback;
   }
 
+  private buildUrl(path: string): string {
+    const cleanPath = path.replace(/^\/+/, '');
+    return `${BASE_URL}/${cleanPath}`;
+  }
+
   private getHeaders(isMultipart = false): HeadersInit {
     const token = localStorage.getItem('admin_access_token');
     const headers: Record<string, string> = {};
