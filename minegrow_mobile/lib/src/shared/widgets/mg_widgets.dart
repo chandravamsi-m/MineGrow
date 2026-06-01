@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_app_utilities/flutter_app_utilities.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/app_routes.dart';
@@ -41,6 +42,9 @@ class MGScaffold extends StatelessWidget {
     );
 
     final page = safeArea ? SafeArea(child: content) : content;
+    final scaffoldBody = scrollable
+        ? SingleChildScrollView(child: page)
+        : page;
 
     final scaffold = Scaffold(
       extendBody: true,
@@ -52,7 +56,8 @@ class MGScaffold extends StatelessWidget {
                 (mainNavigationIndex == null
                     ? null
                     : MGBottomNav(currentIndex: mainNavigationIndex!)),
-      body: scrollable ? SingleChildScrollView(child: page) : page,
+      // Tapping empty space dismisses the keyboard on every MGScaffold screen.
+      body: KeyboardDismissOnTap(child: scaffoldBody),
     );
 
     if (backFallbackRoute == null) {
@@ -104,7 +109,8 @@ class MGMainNavigationShell extends StatelessWidget {
     if (location == AppRoutes.investments ||
         location == AppRoutes.investmentDetails ||
         location == AppRoutes.investmentPayment ||
-        location == AppRoutes.investmentPending) {
+        location == AppRoutes.investmentPending ||
+        location == AppRoutes.investmentHistory) {
       return 1;
     }
     if (location == AppRoutes.wallet || location == AppRoutes.withdrawal) {
@@ -118,7 +124,8 @@ class MGMainNavigationShell extends StatelessWidget {
         location == AppRoutes.bankAccounts ||
         location == AppRoutes.upiDetails ||
         location == AppRoutes.notificationSettings ||
-        location == AppRoutes.notifications) {
+        location == AppRoutes.notifications ||
+        location == AppRoutes.about) {
       return 4;
     }
     return 0;

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../data/investments_repository.dart';
 
@@ -72,13 +73,13 @@ class _InvestmentDetailsScreenState
       body: selectedPlan == null
           ? plansState.when(
               loading: () => const MGLoadingList(itemCount: 2),
-              error: (e, st) => MGFriendlyState(
-                icon: Icons.cloud_off_outlined,
-                title: 'Plan details could not load',
-                message:
+              error: (e, st) => mgErrorView(
+                error: e,
+                onRetry: () => ref.invalidate(investmentPlansProvider),
+                fallbackIcon: Icons.cloud_off_outlined,
+                fallbackTitle: 'Plan details could not load',
+                fallbackMessage:
                     'Refresh plans and select one again before proceeding.',
-                actionLabel: 'Retry',
-                onAction: () => ref.invalidate(investmentPlansProvider),
               ),
               data: (_) => MGFriendlyState(
                 icon: Icons.landscape_outlined,

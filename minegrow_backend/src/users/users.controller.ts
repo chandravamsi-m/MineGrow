@@ -43,6 +43,11 @@ export class UsersController {
     return this.usersService.updateProfile(user.id, dto);
   }
 
+  @Delete('account')
+  async deleteAccount(@CurrentUser() user: any) {
+    return this.usersService.deleteAccount(user.id);
+  }
+
   @Post('kyc')
   @UseInterceptors(FileInterceptor('file'))
   async uploadKyc(

@@ -2,6 +2,11 @@
 .env
 !.env.example
 
+# Android release signing secrets (never commit)
+/android/key.properties
+**/*.jks
+**/*.keystore
+
 # Miscellaneous
 *.class
 *.log

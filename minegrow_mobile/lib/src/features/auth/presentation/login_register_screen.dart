@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_app_utilities/flutter_app_utilities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -78,7 +79,8 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
     final tokens = context.tokens;
     final metrics = context.metrics;
 
-    return Scaffold(
+    return KeyboardDismissOnTap(
+      child: Scaffold(
       backgroundColor: tokens.background,
       resizeToAvoidBottomInset: true,
       body: Stack(
@@ -192,6 +194,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

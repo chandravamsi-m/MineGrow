@@ -96,6 +96,17 @@ class AuthRepository {
     }
   }
 
+  /// Permanently deletes the user's account and clears the local session.
+  ///
+  /// Required by both the App Store and Google Play for apps that support
+  /// account creation. The server call must succeed before the local session
+  /// is cleared, so a failure surfaces to the user and the account is left
+  /// intact; only on success is the device session removed.
+  Future<void> deleteAccount() async {
+    await _apiClient.delete<void>('/users/account');
+    await _storage.removeAll();
+  }
+
   String? readSavedMobile() => _storage.readString(AuthStorageKeys.mobile);
 
   Future<String?> readSavedMobileAsync() =>

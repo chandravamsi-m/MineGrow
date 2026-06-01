@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../data/profile_repository.dart';
 
@@ -34,12 +35,12 @@ class BankAccountsScreen extends ConsumerWidget {
       backFallbackRoute: AppRoutes.profile,
       body: accountsState.when(
         loading: () => const MGLoadingList(itemCount: 3),
-        error: (error, stackTrace) => MGFriendlyState(
-          icon: Icons.account_balance_outlined,
-          title: 'Bank accounts unavailable',
-          message: 'We could not load your bank accounts. Try again.',
-          actionLabel: 'Retry',
-          onAction: () => ref.invalidate(bankAccountsProvider),
+        error: (error, stackTrace) => mgErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(bankAccountsProvider),
+          fallbackIcon: Icons.account_balance_outlined,
+          fallbackTitle: 'Bank accounts unavailable',
+          fallbackMessage: 'We could not load your bank accounts. Try again.',
         ),
         data: (accounts) {
           final bankAccounts = accounts

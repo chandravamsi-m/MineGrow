@@ -7,6 +7,30 @@ class ApiException implements Exception {
   final int? statusCode;
   final Object? cause;
 
+  /// Whether this failure is a connectivity problem (no network reachable, or
+  /// a request that timed out before completing). Used to show a dedicated
+  /// "no internet" experience instead of a generic error.
+  bool get isConnectionError {
+    final cause = this.cause;
+    if (cause is! DioException) {
+      return false;
+    }
+
+    return switch (cause.type) {
+      DioExceptionType.connectionError ||
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout => true,
+      _ => false,
+    };
+  }
+
+  /// Whether the server was reached but responded with a 5xx error.
+  bool get isServerError {
+    final statusCode = this.statusCode;
+    return statusCode != null && statusCode >= 500;
+  }
+
   factory ApiException.fromDioException(DioException exception) {
     final response = exception.response;
     final statusCode = response?.statusCode;

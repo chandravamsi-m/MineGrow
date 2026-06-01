@@ -66,5 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MineGrow needs access to your photos so you can upload KYC documents and payment proof for your investments.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>MineGrow needs camera access so you can capture KYC documents and payment proof for your investments.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

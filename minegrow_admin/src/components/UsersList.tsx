@@ -30,7 +30,7 @@ interface UserDetail {
   mobile: string;
   email: string | null;
   address: string | null;
-  status: 'active' | 'suspended' | 'pending_kyc';
+  status: 'active' | 'suspended' | 'pending_kyc' | 'deleted';
   kyc_verified: boolean;
   kyc_document_url?: string | null;
   kyc_rejection_reason?: string | null;
@@ -98,6 +98,16 @@ const emptyWalletAdjustment: WalletAdjustmentForm = {
   amount: '',
   reason: '',
 };
+
+const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
+  active: { label: 'Active', cls: 'bg-blue-500/10 text-blue-400' },
+  suspended: { label: 'Suspended', cls: 'bg-rose-500/10 text-rose-400' },
+  pending_kyc: { label: 'Pending KYC', cls: 'bg-amber-500/10 text-amber-400' },
+  deleted: { label: 'Deleted', cls: 'bg-slate-600/20 text-slate-400' },
+};
+
+const statusStyle = (status: string) =>
+  STATUS_STYLES[status] ?? { label: status, cls: 'bg-slate-500/10 text-slate-400' };
 
 export const UsersList: React.FC = () => {
   const [users, setUsers] = useState<UserDetail[]>([]);
@@ -418,6 +428,8 @@ export const UsersList: React.FC = () => {
             <option value="">Filter Status: All</option>
             <option value="active">Active Members</option>
             <option value="suspended">Suspended Accounts</option>
+            <option value="pending_kyc">Pending KYC</option>
+            <option value="deleted">Deleted Accounts</option>
           </select>
         </div>
       </div>
@@ -477,12 +489,8 @@ export const UsersList: React.FC = () => {
                           <span>Unverified</span>
                         </span>
                       )}
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                        user.status === 'active'
-                          ? 'bg-blue-500/10 text-blue-400'
-                          : 'bg-rose-500/10 text-rose-400'
-                      }`}>
-                        {user.status === 'active' ? 'Active' : 'Suspended'}
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${statusStyle(user.status).cls}`}>
+                        {statusStyle(user.status).label}
                       </span>
                     </div>
                   </div>
@@ -504,17 +512,19 @@ export const UsersList: React.FC = () => {
                       <span>Details</span>
                     </button>
 
-                    <button
-                      onClick={() => toggleUserStatus(user)}
-                      disabled={actionLoading}
-                      className={`py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
-                        user.status === 'active'
-                          ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
-                          : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
-                      }`}
-                    >
-                      {user.status === 'active' ? 'Suspend' : 'Activate'}
-                    </button>
+                    {user.status !== 'deleted' && (
+                      <button
+                        onClick={() => toggleUserStatus(user)}
+                        disabled={actionLoading}
+                        className={`py-1.5 px-3 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
+                          user.status === 'active'
+                            ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
+                            : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
+                        }`}
+                      >
+                        {user.status === 'active' ? 'Suspend' : 'Activate'}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -586,12 +596,8 @@ export const UsersList: React.FC = () => {
                         )}
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          user.status === 'active'
-                            ? 'bg-blue-500/10 text-blue-400'
-                            : 'bg-rose-500/10 text-rose-400'
-                        }`}>
-                          {user.status === 'active' ? 'Active' : 'Suspended'}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusStyle(user.status).cls}`}>
+                          {statusStyle(user.status).label}
                         </span>
                       </td>
                       <td className="p-4 pr-6 text-center" onClick={(e) => e.stopPropagation()}>
@@ -604,18 +610,20 @@ export const UsersList: React.FC = () => {
                             <Eye className="w-4 h-4" />
                           </button>
                           
-                          <button
-                            onClick={() => toggleUserStatus(user)}
-                            disabled={actionLoading}
-                            className={`p-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
-                              user.status === 'active'
-                                ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
-                                : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
-                            }`}
-                            title={user.status === 'active' ? 'Suspend Account' : 'Activate Account'}
-                          >
-                            {user.status === 'active' ? 'Suspend' : 'Activate'}
-                          </button>
+                          {user.status !== 'deleted' && (
+                            <button
+                              onClick={() => toggleUserStatus(user)}
+                              disabled={actionLoading}
+                              className={`p-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
+                                user.status === 'active'
+                                  ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
+                                  : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
+                              }`}
+                              title={user.status === 'active' ? 'Suspend Account' : 'Activate Account'}
+                            >
+                              {user.status === 'active' ? 'Suspend' : 'Activate'}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -775,12 +783,8 @@ export const UsersList: React.FC = () => {
                               )}
                             </div>
                             <div className="flex flex-col items-end space-y-2">
-                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border ${
-                                selectedUser.status === 'active' 
-                                  ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' 
-                                  : 'bg-rose-500/5 border-rose-500/10 text-rose-400'
-                              }`}>
-                                Account: {selectedUser.status}
+                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full ${statusStyle(selectedUser.status).cls}`}>
+                                Account: {statusStyle(selectedUser.status).label}
                               </span>
                               {selectedUser.kyc_verified ? (
                                 <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full border bg-emerald-500/5 border-emerald-500/10 text-emerald-400">
@@ -807,17 +811,19 @@ export const UsersList: React.FC = () => {
                               <Calendar className="w-3.5 h-3.5" />
                               <span>Joined: {new Date(selectedUser.created_at).toLocaleDateString()}</span>
                             </div>
-                            <button
-                              onClick={() => toggleUserStatus(selectedUser)}
-                              disabled={actionLoading}
-                              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
-                                selectedUser.status === 'active'
-                                  ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
-                                  : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
-                              }`}
-                            >
-                              {selectedUser.status === 'active' ? 'Suspend Account' : 'Activate Account'}
-                            </button>
+                            {selectedUser.status !== 'deleted' && (
+                              <button
+                                onClick={() => toggleUserStatus(selectedUser)}
+                                disabled={actionLoading}
+                                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all duration-300 ${
+                                  selectedUser.status === 'active'
+                                    ? 'border-rose-500/20 hover:bg-rose-500/10 text-rose-400'
+                                    : 'border-emerald-500/20 hover:bg-emerald-500/10 text-emerald-400'
+                                }`}
+                              >
+                                {selectedUser.status === 'active' ? 'Suspend Account' : 'Activate Account'}
+                              </button>
+                            )}
                           </div>
                         </div>
 

@@ -35,6 +35,8 @@ const readTabFromHash = (): Tab => {
   return 'dashboard';
 };
 
+
+
 const MainAppContent: React.FC = () => {
   const { admin, login, sessionError, clearSessionError } = useAuth();
   const [activeTab, setActiveTabState] = useState<Tab>(() => {

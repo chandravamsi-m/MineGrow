@@ -7,6 +7,7 @@ import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../wallet/data/wallet_repository.dart';
 
@@ -100,13 +101,13 @@ class RoiHistoryScreen extends ConsumerWidget {
             // ── History list ──────────────────────────────────────────────
             historyState.when(
               loading: () => const MGLoadingList(),
-              error: (error, stackTrace) => MGFriendlyState(
-                icon: Icons.sync_problem_outlined,
-                title: 'ROI history is unavailable',
-                message:
+              error: (error, stackTrace) => mgErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(roiHistoryProvider),
+                fallbackIcon: Icons.sync_problem_outlined,
+                fallbackTitle: 'ROI history is unavailable',
+                fallbackMessage:
                     'We could not fetch your latest credits. Try again in a moment.',
-                actionLabel: 'Retry',
-                onAction: () => ref.invalidate(roiHistoryProvider),
               ),
               data: (history) {
                 if (history.isEmpty) {

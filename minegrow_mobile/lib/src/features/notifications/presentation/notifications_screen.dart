@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../data/notifications_repository.dart';
 
@@ -32,13 +33,13 @@ class NotificationsScreen extends ConsumerWidget {
           error: (error, stackTrace) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
-              MGFriendlyState(
-                icon: Icons.notifications_off_outlined,
-                title: 'Notifications unavailable',
-                message:
+              mgErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(notificationsProvider),
+                fallbackIcon: Icons.notifications_off_outlined,
+                fallbackTitle: 'Notifications unavailable',
+                fallbackMessage:
                     'We could not refresh your notifications. Try again later.',
-                actionLabel: 'Retry',
-                onAction: () => ref.invalidate(notificationsProvider),
               ),
             ],
           ),

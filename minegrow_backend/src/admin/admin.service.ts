@@ -146,6 +146,13 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
+    // A deleted account is terminal — it cannot be reactivated or re-suspended.
+    if (user.status === 'deleted') {
+      throw new BadRequestException(
+        'This account has been deleted and cannot be modified.',
+      );
+    }
+
     const { data: updated, error } = await supabase
       .from('users')
       .update({ status: dto.status, updated_at: getISTDateTimeString() })

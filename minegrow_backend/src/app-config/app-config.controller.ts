@@ -17,6 +17,24 @@ export class AppConfigController {
       'risk_disclosure',
       'Mining investment returns depend on active plan terms, approved deposits, and wallet eligibility rules.',
     );
+    // Mobile maintenance + force-update gates. Empty min version / update URL
+    // means "no gate"; maintenance defaults to off.
+    const maintenanceModeRaw = await this.appConfigService.getVal(
+      'maintenance_mode',
+      'false',
+    );
+    const maintenanceMode = ['true', '1', 'yes'].includes(
+      maintenanceModeRaw.trim().toLowerCase(),
+    );
+    const maintenanceMessage = await this.appConfigService.getVal(
+      'maintenance_message',
+      'MineGrow is briefly down for maintenance. Please check back shortly.',
+    );
+    const minSupportedVersion = await this.appConfigService.getVal(
+      'min_supported_version',
+      '',
+    );
+    const updateUrl = await this.appConfigService.getVal('update_url', '');
 
     return {
       payment_upi_id: paymentUpiId,
@@ -33,6 +51,14 @@ export class AppConfigController {
       privacyUrl,
       risk_disclosure: riskDisclosure,
       riskDisclosure,
+      maintenance_mode: maintenanceMode,
+      maintenanceMode,
+      maintenance_message: maintenanceMessage,
+      maintenanceMessage,
+      min_supported_version: minSupportedVersion,
+      minSupportedVersion,
+      update_url: updateUrl,
+      updateUrl,
     };
   }
 }

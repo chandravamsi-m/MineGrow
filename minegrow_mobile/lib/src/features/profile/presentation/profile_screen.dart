@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_app_utilities/flutter_app_utilities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +10,7 @@ import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../app_config/data/app_config_repository.dart';
 import '../../auth/data/auth_repository.dart';
@@ -33,13 +35,13 @@ class ProfileScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         child: profileState.when(
           loading: () => const MGLoadingList(itemCount: 3),
-          error: (error, stackTrace) => MGFriendlyState(
-            icon: Icons.person_off_outlined,
-            title: 'Profile could not load',
-            message:
+          error: (error, stackTrace) => mgErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(profileProvider),
+            fallbackIcon: Icons.person_off_outlined,
+            fallbackTitle: 'Profile could not load',
+            fallbackMessage:
                 'Login again or check your connection to refresh account details.',
-            actionLabel: 'Retry',
-            onAction: () => ref.invalidate(profileProvider),
           ),
           data: (profile) {
             final bankAccounts = bankAccountsState.maybeWhen(
@@ -115,7 +117,8 @@ class ProfileScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      IconButton(
+                      AccessibleIconButton(
+                        semanticLabel: 'Edit profile',
                         onPressed: () => _showEditDialog(context, profile),
                         icon: const Icon(Icons.edit_outlined),
                       ),
@@ -131,7 +134,7 @@ class ProfileScreen extends ConsumerWidget {
                         ? MGStatus.verified
                         : MGStatus.pending,
                   ),
-                  onTap: () => _showKycSheet(context),
+                  onTap: () => _showKycSheet(context, profile.kycVerified),
                 ),
                 _ProfileTile(
                   icon: Icons.account_balance_outlined,
@@ -162,6 +165,11 @@ class ProfileScreen extends ConsumerWidget {
                   title: 'Legal & Compliance',
                   onTap: () => _showLegalSheet(context, appConfig),
                 ),
+                _ProfileTile(
+                  icon: Icons.info_outline_rounded,
+                  title: 'About',
+                  onTap: () => context.go(AppRoutes.about),
+                ),
                 const MGInlineMessage(
                   message:
                       'Keep KYC, bank account, and UPI details updated to avoid payout delays.',
@@ -174,6 +182,12 @@ class ProfileScreen extends ConsumerWidget {
                   title: 'Logout',
                   titleColor: context.tokens.danger,
                   onTap: () => _confirmLogout(context, ref),
+                ),
+                _ProfileTile(
+                  icon: Icons.delete_forever_outlined,
+                  title: 'Delete Account',
+                  titleColor: context.tokens.danger,
+                  onTap: () => _confirmDeleteAccount(context, ref),
                 ),
               ],
             );
@@ -197,7 +211,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  static void _showKycSheet(BuildContext context) {
+  static void _showKycSheet(BuildContext context, bool kycVerified) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -207,7 +221,7 @@ class ProfileScreen extends ConsumerWidget {
           top: Radius.circular(context.metrics.radiusLarge),
         ),
       ),
-      builder: (ctx) => const _KycUploadSheet(),
+      builder: (ctx) => _KycUploadSheet(kycVerified: kycVerified),
     );
   }
 
@@ -289,6 +303,71 @@ class ProfileScreen extends ConsumerWidget {
     ref.invalidate(bankAccountsProvider);
     if (context.mounted) {
       context.go(AppRoutes.auth);
+    }
+  }
+
+  static Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.tokens.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.metrics.radiusLarge),
+        ),
+        title: Text(
+          'Delete account?',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        content: Text(
+          'This permanently deletes your account, KYC details, bank and UPI '
+          'records, and history. Any remaining wallet balance must be withdrawn '
+          'first. This cannot be undone.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: context.tokens.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Delete account',
+              style: TextStyle(color: context.tokens.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(authRepositoryProvider).deleteAccount();
+      ref.invalidate(profileProvider);
+      ref.invalidate(bankAccountsProvider);
+      if (context.mounted) {
+        context.go(AppRoutes.auth);
+      }
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not delete account. Please try again.'),
+          ),
+        );
+      }
     }
   }
 }
@@ -421,7 +500,9 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _KycUploadSheet extends ConsumerStatefulWidget {
-  const _KycUploadSheet();
+  const _KycUploadSheet({required this.kycVerified});
+
+  final bool kycVerified;
 
   @override
   ConsumerState<_KycUploadSheet> createState() => _KycUploadSheetState();
@@ -512,6 +593,16 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
   Widget build(BuildContext context) {
     final kycState = ref.watch(kycDocumentsProvider);
 
+    if (widget.kycVerified) {
+      return _buildVerified(context, kycState);
+    }
+
+    final isRejected = kycState.maybeWhen(
+      data: (docs) =>
+          docs.isNotEmpty && docs.first.status.toLowerCase() == 'rejected',
+      orElse: () => false,
+    );
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
@@ -525,7 +616,10 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload KYC', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                isRejected ? 'Update KYC' : 'Upload KYC',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 6),
               Text(
                 'Choose a document type and upload a clear JPG, PNG, or PDF.',
@@ -533,6 +627,15 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
                   color: context.tokens.textSecondary,
                 ),
               ),
+              if (isRejected) ...[
+                const SizedBox(height: 12),
+                const MGInlineMessage(
+                  message:
+                      'Your previous KYC submission was rejected. Please upload a corrected document.',
+                  tone: MGMessageTone.danger,
+                  icon: Icons.error_outline,
+                ),
+              ],
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _docType,
@@ -573,11 +676,68 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
               ),
               const SizedBox(height: 20),
               MGGradientButton(
-                label: _isSubmitting ? 'Uploading...' : 'Upload Document',
+                label: _isSubmitting
+                    ? 'Uploading...'
+                    : (isRejected ? 'Update Documents' : 'Upload Document'),
                 onPressed: _isSubmitting ? null : _submit,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerified(
+    BuildContext context,
+    AsyncValue<List<KycDocument>> kycState,
+  ) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: context.metrics.screenPadding,
+          right: context.metrics.screenPadding,
+          top: 20,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.verified_user_rounded,
+                  color: context.tokens.success,
+                  size: 26,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'KYC Verified',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your identity is verified. No further documents are needed.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            kycState.maybeWhen(
+              data: (documents) => documents.isEmpty
+                  ? const SizedBox.shrink()
+                  : _KycDocumentSummary(documents: documents),
+              orElse: () => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 20),
+            MGGradientButton(
+              label: 'Done',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
         ),
       ),
     );
