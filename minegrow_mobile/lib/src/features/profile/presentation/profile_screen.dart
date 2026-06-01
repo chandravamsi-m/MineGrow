@@ -134,7 +134,7 @@ class ProfileScreen extends ConsumerWidget {
                         ? MGStatus.verified
                         : MGStatus.pending,
                   ),
-                  onTap: () => _showKycSheet(context),
+                  onTap: () => _showKycSheet(context, profile.kycVerified),
                 ),
                 _ProfileTile(
                   icon: Icons.account_balance_outlined,
@@ -211,7 +211,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  static void _showKycSheet(BuildContext context) {
+  static void _showKycSheet(BuildContext context, bool kycVerified) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -221,7 +221,7 @@ class ProfileScreen extends ConsumerWidget {
           top: Radius.circular(context.metrics.radiusLarge),
         ),
       ),
-      builder: (ctx) => const _KycUploadSheet(),
+      builder: (ctx) => _KycUploadSheet(kycVerified: kycVerified),
     );
   }
 
@@ -500,7 +500,9 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _KycUploadSheet extends ConsumerStatefulWidget {
-  const _KycUploadSheet();
+  const _KycUploadSheet({required this.kycVerified});
+
+  final bool kycVerified;
 
   @override
   ConsumerState<_KycUploadSheet> createState() => _KycUploadSheetState();
@@ -591,6 +593,16 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
   Widget build(BuildContext context) {
     final kycState = ref.watch(kycDocumentsProvider);
 
+    if (widget.kycVerified) {
+      return _buildVerified(context, kycState);
+    }
+
+    final isRejected = kycState.maybeWhen(
+      data: (docs) =>
+          docs.isNotEmpty && docs.first.status.toLowerCase() == 'rejected',
+      orElse: () => false,
+    );
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
@@ -604,7 +616,10 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload KYC', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                isRejected ? 'Update KYC' : 'Upload KYC',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 6),
               Text(
                 'Choose a document type and upload a clear JPG, PNG, or PDF.',
@@ -612,6 +627,15 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
                   color: context.tokens.textSecondary,
                 ),
               ),
+              if (isRejected) ...[
+                const SizedBox(height: 12),
+                const MGInlineMessage(
+                  message:
+                      'Your previous KYC submission was rejected. Please upload a corrected document.',
+                  tone: MGMessageTone.danger,
+                  icon: Icons.error_outline,
+                ),
+              ],
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _docType,
@@ -652,11 +676,68 @@ class _KycUploadSheetState extends ConsumerState<_KycUploadSheet> {
               ),
               const SizedBox(height: 20),
               MGGradientButton(
-                label: _isSubmitting ? 'Uploading...' : 'Upload Document',
+                label: _isSubmitting
+                    ? 'Uploading...'
+                    : (isRejected ? 'Update Documents' : 'Upload Document'),
                 onPressed: _isSubmitting ? null : _submit,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerified(
+    BuildContext context,
+    AsyncValue<List<KycDocument>> kycState,
+  ) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: context.metrics.screenPadding,
+          right: context.metrics.screenPadding,
+          top: 20,
+          bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.verified_user_rounded,
+                  color: context.tokens.success,
+                  size: 26,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'KYC Verified',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your identity is verified. No further documents are needed.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            kycState.maybeWhen(
+              data: (documents) => documents.isEmpty
+                  ? const SizedBox.shrink()
+                  : _KycDocumentSummary(documents: documents),
+              orElse: () => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 20),
+            MGGradientButton(
+              label: 'Done',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
         ),
       ),
     );
