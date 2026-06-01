@@ -16,7 +16,7 @@ import {
   LifeBuoy,
 } from 'lucide-react';
 
-type FieldKind = 'text' | 'number' | 'email' | 'tel' | 'url' | 'textarea';
+type FieldKind = 'text' | 'number' | 'email' | 'tel' | 'url' | 'textarea' | 'select';
 
 interface ConfigField {
   key: string;
@@ -26,10 +26,12 @@ interface ConfigField {
   kind: FieldKind;
   icon: React.ComponentType<{ className?: string }>;
   iconTint: string;
-  group: 'payments' | 'auth' | 'support' | 'legal';
+  group: 'payments' | 'auth' | 'support' | 'legal' | 'system';
   min?: number;
   max?: number;
   required?: boolean;
+  options?: { value: string; label: string }[];
+  defaultValue?: string;
   validate?: (value: string) => string | null;
 }
 
@@ -113,6 +115,59 @@ const FIELDS: ConfigField[] = [
     group: 'legal',
     required: true,
   },
+  {
+    key: 'maintenance_mode',
+    label: 'Maintenance Mode',
+    description:
+      'When on, the mobile app shows a blocking "under maintenance" screen at launch and users cannot proceed.',
+    placeholder: 'false',
+    kind: 'select',
+    icon: ShieldAlert,
+    iconTint: 'rose',
+    group: 'system',
+    defaultValue: 'false',
+    options: [
+      { value: 'false', label: 'Operational' },
+      { value: 'true', label: 'Maintenance mode (block app)' },
+    ],
+  },
+  {
+    key: 'maintenance_message',
+    label: 'Maintenance Message',
+    description:
+      'Shown on the maintenance screen. Only displayed while maintenance mode is on.',
+    placeholder: 'MineGrow is briefly down for maintenance. Please check back shortly.',
+    kind: 'textarea',
+    icon: LifeBuoy,
+    iconTint: 'amber',
+    group: 'system',
+  },
+  {
+    key: 'min_supported_version',
+    label: 'Minimum Supported Version',
+    description:
+      'Force-update gate. Clients older than this semver (e.g. 1.2.0) are blocked at launch. Leave blank to disable.',
+    placeholder: '1.0.0',
+    kind: 'text',
+    icon: RefreshCw,
+    iconTint: 'indigo',
+    group: 'system',
+    validate: (v) =>
+      v.trim() && !/^\d+\.\d+\.\d+$/.test(v.trim())
+        ? 'Use semver format x.y.z (e.g. 1.2.0) or leave blank'
+        : null,
+  },
+  {
+    key: 'update_url',
+    label: 'Update URL',
+    description:
+      'Store link opened by the force-update screen. Leave blank to use the default Play Store / App Store link.',
+    placeholder: 'https://play.google.com/store/apps/details?id=com.minegrow.app',
+    kind: 'url',
+    icon: FileText,
+    iconTint: 'sky',
+    group: 'system',
+  },
 ];
 
 const TINT_BG: Record<string, string> = {
@@ -130,6 +185,7 @@ const GROUP_TITLES: Record<ConfigField['group'], string> = {
   auth: 'Authentication',
   support: 'Support contacts',
   legal: 'Legal & compliance',
+  system: 'App availability & updates',
 };
 
 function validateField(field: ConfigField, value: string): string | null {
@@ -150,6 +206,9 @@ function validateField(field: ConfigField, value: string): string | null {
   if (field.kind === 'url' && trimmed && !/^https?:\/\/.+/i.test(trimmed)) {
     return `${field.label} must start with http:// or https://`;
   }
+
+  const custom = field.validate?.(value);
+  if (custom) return custom;
 
   return null;
 }
@@ -179,7 +238,9 @@ export const Settings: React.FC = () => {
       const map: Record<string, string> = {};
       for (const field of FIELDS) {
         const found = list.find((c) => c.key === field.key);
-        map[field.key] = found ? String(found.value ?? '') : '';
+        map[field.key] = found
+          ? String(found.value ?? '')
+          : (field.defaultValue ?? '');
       }
       setValues(map);
       setOriginal(map);
@@ -277,7 +338,13 @@ export const Settings: React.FC = () => {
     );
   }
 
-  const groups: ConfigField['group'][] = ['payments', 'auth', 'support', 'legal'];
+  const groups: ConfigField['group'][] = [
+    'payments',
+    'auth',
+    'support',
+    'legal',
+    'system',
+  ];
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -368,6 +435,22 @@ export const Settings: React.FC = () => {
                                 : 'border-slate-800 focus:border-indigo-500/40'
                             }`}
                           />
+                        ) : field.kind === 'select' ? (
+                          <select
+                            value={value || (field.defaultValue ?? '')}
+                            onChange={(e) => updateValue(field.key, e.target.value)}
+                            className={`w-full bg-slate-900/60 border rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none transition-colors ${
+                              fieldError
+                                ? 'border-rose-500/60 focus:border-rose-500/80'
+                                : 'border-slate-800 focus:border-indigo-500/40'
+                            }`}
+                          >
+                            {(field.options ?? []).map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
                         ) : (
                           <input
                             type={field.kind === 'number' ? 'number' : field.kind}

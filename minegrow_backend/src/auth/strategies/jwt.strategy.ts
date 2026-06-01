@@ -61,7 +61,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         .eq('id', payload.sub)
         .single();
 
-      if (error || !user || user.status === 'suspended') {
+      if (
+        error ||
+        !user ||
+        user.status === 'suspended' ||
+        user.status === 'deleted'
+      ) {
         throw new UnauthorizedException('User account is suspended or invalid');
       }
 

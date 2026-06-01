@@ -152,7 +152,7 @@ export class AuthService {
       }
     }
 
-    if (user.status === 'suspended') {
+    if (user.status === 'suspended' || user.status === 'deleted') {
       throw new UnauthorizedException('User account is suspended');
     }
 
@@ -338,7 +338,7 @@ export class AuthService {
         throw new UnauthorizedException('Account not found');
       }
 
-      if (entity.status === 'suspended') {
+      if (entity.status === 'suspended' || entity.status === 'deleted') {
         throw new UnauthorizedException('Account is suspended');
       }
 

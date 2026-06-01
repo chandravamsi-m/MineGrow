@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClientService } from '../config/supabase.client';
 import { UploadsService } from '../uploads/uploads.service';
-import * as bcrypt from 'bcryptjs';
+import { AuditService } from '../audit/audit.service';
 import {
   UpdateProfileDto,
   AddBankAccountDto,
@@ -23,6 +23,7 @@ export class UsersService {
   constructor(
     private readonly supabaseService: SupabaseClientService,
     private readonly uploadsService: UploadsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async getProfile(userId: number) {
@@ -381,5 +382,107 @@ export class UsersService {
     }
 
     return { message: 'Device token registered successfully' };
+  }
+
+  /**
+   * Permanently closes a user's account (App Store / Google Play requirement).
+   *
+   * Implemented as a soft delete so financial records (investments,
+   * withdrawals, wallet ledger, ROI history, audit logs) are retained for
+   * compliance, while the account is rendered unusable and personal data is
+   * scrubbed. Blocked while the user still has funds or in-flight activity to
+   * avoid orphaning money.
+   */
+  async deleteAccount(userId: number) {
+    const supabase = this.supabaseService.getClient();
+
+    // 1. Load the account and ensure it isn't already deleted.
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, status, token_version')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (userError || !user || user.status === 'deleted') {
+      throw new NotFoundException('User account not found');
+    }
+
+    // 2. Block deletion while funds remain in the wallet.
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('roi_balance, principal_balance')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const balance =
+      Number(wallet?.roi_balance ?? 0) + Number(wallet?.principal_balance ?? 0);
+    if (balance > 0) {
+      throw new BadRequestException(
+        'Withdraw your remaining wallet balance before deleting your account.',
+      );
+    }
+
+    // 3. Block deletion while investments are pending or active.
+    const { count: openInvestments } = await supabase
+      .from('investments')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('status', ['pending', 'approved', 'active']);
+
+    if ((openInvestments ?? 0) > 0) {
+      throw new BadRequestException(
+        'You have active or pending investments. They must complete or be resolved before your account can be deleted.',
+      );
+    }
+
+    // 4. Block deletion while a withdrawal is in flight.
+    const { count: openWithdrawals } = await supabase
+      .from('withdrawals')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('status', ['requested', 'approved']);
+
+    if ((openWithdrawals ?? 0) > 0) {
+      throw new BadRequestException(
+        'You have a withdrawal in progress. Wait for it to complete before deleting your account.',
+      );
+    }
+
+    // 5. Anonymize the profile, revoke all sessions (token_version bump), and
+    //    free the mobile/email so the user can register again later.
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        status: 'deleted',
+        full_name: 'Deleted User',
+        email: null,
+        address: null,
+        mobile: `deleted_${userId}`,
+        token_version: (user.token_version ?? 1) + 1,
+        deleted_at: getISTDateTimeString(),
+        updated_at: getISTDateTimeString(),
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      this.logger.error('Failed to soft-delete user account:', updateError);
+      throw new InternalServerErrorException('Error deleting account');
+    }
+
+    // 6. Remove auxiliary records holding PII / push targets (best effort).
+    await supabase.from('device_tokens').delete().eq('user_id', userId);
+    await supabase.from('bank_accounts').delete().eq('user_id', userId);
+
+    // 7. Compliance audit trail (append-only).
+    await this.auditService.log(
+      'user',
+      userId,
+      'account_deleted',
+      userId,
+      null,
+      { soft_delete: true },
+    );
+
+    return { message: 'Your account has been deleted.' };
   }
 }
