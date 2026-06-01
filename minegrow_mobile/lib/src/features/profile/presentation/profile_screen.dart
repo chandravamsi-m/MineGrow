@@ -178,6 +178,12 @@ class ProfileScreen extends ConsumerWidget {
                   titleColor: context.tokens.danger,
                   onTap: () => _confirmLogout(context, ref),
                 ),
+                _ProfileTile(
+                  icon: Icons.delete_forever_outlined,
+                  title: 'Delete Account',
+                  titleColor: context.tokens.danger,
+                  onTap: () => _confirmDeleteAccount(context, ref),
+                ),
               ],
             );
           },
@@ -292,6 +298,71 @@ class ProfileScreen extends ConsumerWidget {
     ref.invalidate(bankAccountsProvider);
     if (context.mounted) {
       context.go(AppRoutes.auth);
+    }
+  }
+
+  static Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.tokens.surfaceElevated,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.metrics.radiusLarge),
+        ),
+        title: Text(
+          'Delete account?',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        content: Text(
+          'This permanently deletes your account, KYC details, bank and UPI '
+          'records, and history. Any remaining wallet balance must be withdrawn '
+          'first. This cannot be undone.',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: context.tokens.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Delete account',
+              style: TextStyle(color: context.tokens.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(authRepositoryProvider).deleteAccount();
+      ref.invalidate(profileProvider);
+      ref.invalidate(bankAccountsProvider);
+      if (context.mounted) {
+        context.go(AppRoutes.auth);
+      }
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not delete account. Please try again.'),
+          ),
+        );
+      }
     }
   }
 }

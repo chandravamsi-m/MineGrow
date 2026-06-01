@@ -17,4 +17,6 @@ abstract final class AppRoutes {
   static const upiDetails = '/profile/upi-details';
   static const notificationSettings = '/profile/notification-settings';
   static const notifications = '/notifications';
+  static const updateRequired = '/update-required';
+  static const maintenance = '/maintenance';
 }

@@ -122,7 +122,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       ref.invalidate(walletSummaryProvider);
 
       if (mounted) {
-        context.go(AppRoutes.investmentPending);
+        context.go(AppRoutes.investmentPending, extra: widget.args);
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _errorText = e.message);

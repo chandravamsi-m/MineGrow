@@ -13,6 +13,10 @@ class RemoteAppConfig {
     required this.termsUrl,
     required this.privacyUrl,
     required this.riskDisclosure,
+    this.maintenanceMode = false,
+    this.maintenanceMessage,
+    this.minSupportedVersion,
+    this.updateUrl,
   });
 
   /// UPI ID to show on the payment screen QR code / deep-link.
@@ -23,6 +27,18 @@ class RemoteAppConfig {
   final String termsUrl;
   final String privacyUrl;
   final String riskDisclosure;
+
+  /// When true the backend is down for maintenance and the app should show a
+  /// blocking screen instead of letting the user in.
+  final bool maintenanceMode;
+  final String? maintenanceMessage;
+
+  /// Minimum app version (semver "x.y.z") the backend still supports. Clients
+  /// older than this are forced to update. Null disables the gate.
+  final String? minSupportedVersion;
+
+  /// Store URL opened by the force-update screen's primary action.
+  final String? updateUrl;
 
   factory RemoteAppConfig.fallback() => RemoteAppConfig(
         paymentUpiId: AppConfig.paymentUpiId,
@@ -56,7 +72,28 @@ class RemoteAppConfig {
       riskDisclosure: map['risk_disclosure']?.toString() ??
           map['riskDisclosure']?.toString() ??
           fallback.riskDisclosure,
+      maintenanceMode: _boolValue(
+        map['maintenance_mode'] ?? map['maintenanceMode'],
+      ),
+      maintenanceMessage: (map['maintenance_message'] ??
+              map['maintenanceMessage'])
+          ?.toString(),
+      minSupportedVersion: (map['min_supported_version'] ??
+              map['minSupportedVersion'])
+          ?.toString(),
+      updateUrl:
+          (map['update_url'] ?? map['updateUrl'])?.toString(),
     );
+  }
+
+  static bool _boolValue(Object? value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.toLowerCase();
+      return v == 'true' || v == '1' || v == 'yes';
+    }
+    return false;
   }
 }
 

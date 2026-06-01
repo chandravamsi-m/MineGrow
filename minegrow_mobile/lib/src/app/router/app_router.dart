@@ -6,6 +6,7 @@ import '../../shared/widgets/mg_widgets.dart';
 import '../../features/auth/presentation/login_register_screen.dart';
 import '../../features/auth/presentation/otp_verification_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
+import '../../features/app_config/presentation/app_gate_screens.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/history/presentation/roi_history_screen.dart';
 import '../../features/history/presentation/withdrawal_history_screen.dart';
@@ -99,6 +100,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.updateRequired,
+        name: 'update-required',
+        builder: (context, state) => const ForceUpdateScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.maintenance,
+        name: 'maintenance',
+        builder: (context, state) => const MaintenanceScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => MGMainNavigationShell(
           location: state.matchedLocation,
@@ -138,7 +149,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.investmentPending,
             name: 'investment-pending',
-            builder: (context, state) => const PaymentPendingScreen(),
+            builder: (context, state) => PaymentPendingScreen(
+              args: state.extra is PaymentArgs
+                  ? state.extra! as PaymentArgs
+                  : null,
+            ),
           ),
           GoRoute(
             path: AppRoutes.wallet,
