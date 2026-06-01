@@ -8,6 +8,7 @@ import '../../features/auth/presentation/otp_verification_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/app_config/presentation/app_gate_screens.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/history/presentation/investment_history_screen.dart';
 import '../../features/history/presentation/roi_history_screen.dart';
 import '../../features/history/presentation/withdrawal_history_screen.dart';
 import '../../features/investments/presentation/investment_details_screen.dart';
@@ -15,6 +16,7 @@ import '../../features/investments/presentation/investment_plans_screen.dart';
 import '../../features/investments/presentation/payment_pending_screen.dart';
 import '../../features/investments/presentation/payment_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/profile/presentation/about_screen.dart';
 import '../../features/profile/presentation/bank_accounts_screen.dart';
 import '../../features/profile/presentation/notification_settings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -43,11 +45,13 @@ const _protectedRoutes = {
   AppRoutes.roiHistory,
   AppRoutes.withdrawal,
   AppRoutes.withdrawalHistory,
+  AppRoutes.investmentHistory,
   AppRoutes.profile,
   AppRoutes.bankAccounts,
   AppRoutes.upiDetails,
   AppRoutes.notificationSettings,
   AppRoutes.notifications,
+  AppRoutes.about,
   AppRoutes.onboarding,
 };
 
@@ -176,6 +180,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const WithdrawalHistoryScreen(),
           ),
           GoRoute(
+            path: AppRoutes.investmentHistory,
+            name: 'investment-history',
+            builder: (context, state) => const InvestmentHistoryScreen(),
+          ),
+          GoRoute(
             path: AppRoutes.profile,
             name: 'profile',
             builder: (context, state) => const ProfileScreen(),
@@ -194,6 +203,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.notificationSettings,
             name: 'notification-settings',
             builder: (context, state) => const NotificationSettingsScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.about,
+            name: 'about',
+            builder: (context, state) => const AboutScreen(),
           ),
           GoRoute(
             path: AppRoutes.notifications,

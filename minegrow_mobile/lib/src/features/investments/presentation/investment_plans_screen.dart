@@ -50,7 +50,14 @@ class _InvestmentPlansScreenState extends ConsumerState<InvestmentPlansScreen>
         nonActiveInvestments.where((i) => i.status == 'pending').length;
 
     return MGScaffold(
-      appBar: const MGAppBar(title: 'Investments'),
+      appBar: MGAppBar(
+        title: 'Investments',
+        action: IconButton(
+          tooltip: 'Investment history',
+          icon: const Icon(Icons.history),
+          onPressed: () => context.go(AppRoutes.investmentHistory),
+        ),
+      ),
       mainNavigationIndex: 1,
       scrollable: false,
       padding: EdgeInsets.zero,

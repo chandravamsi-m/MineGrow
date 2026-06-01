@@ -109,7 +109,8 @@ class MGMainNavigationShell extends StatelessWidget {
     if (location == AppRoutes.investments ||
         location == AppRoutes.investmentDetails ||
         location == AppRoutes.investmentPayment ||
-        location == AppRoutes.investmentPending) {
+        location == AppRoutes.investmentPending ||
+        location == AppRoutes.investmentHistory) {
       return 1;
     }
     if (location == AppRoutes.wallet || location == AppRoutes.withdrawal) {
@@ -123,7 +124,8 @@ class MGMainNavigationShell extends StatelessWidget {
         location == AppRoutes.bankAccounts ||
         location == AppRoutes.upiDetails ||
         location == AppRoutes.notificationSettings ||
-        location == AppRoutes.notifications) {
+        location == AppRoutes.notifications ||
+        location == AppRoutes.about) {
       return 4;
     }
     return 0;

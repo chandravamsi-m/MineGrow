@@ -165,6 +165,11 @@ class ProfileScreen extends ConsumerWidget {
                   title: 'Legal & Compliance',
                   onTap: () => _showLegalSheet(context, appConfig),
                 ),
+                _ProfileTile(
+                  icon: Icons.info_outline_rounded,
+                  title: 'About',
+                  onTap: () => context.go(AppRoutes.about),
+                ),
                 const MGInlineMessage(
                   message:
                       'Keep KYC, bank account, and UPI details updated to avoid payout delays.',

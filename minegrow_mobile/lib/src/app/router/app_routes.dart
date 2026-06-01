@@ -12,11 +12,13 @@ abstract final class AppRoutes {
   static const roiHistory = '/history/roi';
   static const withdrawal = '/withdraw';
   static const withdrawalHistory = '/history/withdrawals';
+  static const investmentHistory = '/history/investments';
   static const profile = '/profile';
   static const bankAccounts = '/profile/bank-accounts';
   static const upiDetails = '/profile/upi-details';
   static const notificationSettings = '/profile/notification-settings';
   static const notifications = '/notifications';
+  static const about = '/profile/about';
   static const updateRequired = '/update-required';
   static const maintenance = '/maintenance';
 }
