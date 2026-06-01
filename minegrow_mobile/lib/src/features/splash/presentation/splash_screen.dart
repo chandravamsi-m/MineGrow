@@ -117,7 +117,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           ),
           Column(
             children: [
-              const Spacer(),
+              const Spacer(flex: 1),
               const MGMiningMark(size: 92),
               const SizedBox(height: 22),
               Text(
@@ -133,7 +133,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   color: context.tokens.textSecondary,
                 ),
               ),
-              const Spacer(),
+               Spacer(flex: 4),
 
               const SizedBox(height: 28),
               ClipRRect(
