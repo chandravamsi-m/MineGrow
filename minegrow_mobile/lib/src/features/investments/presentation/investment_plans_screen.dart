@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/investments_repository.dart';
@@ -260,13 +261,13 @@ class _PlansTab extends ConsumerWidget {
           const SizedBox(height: 16),
           plansState.when(
             loading: () => const MGLoadingList(),
-            error: (error, _) => MGFriendlyState(
-              icon: Icons.cloud_off_outlined,
-              title: 'Plans could not load',
-              message:
+            error: (error, _) => mgErrorView(
+              error: error,
+              onRetry: onRetry,
+              fallbackIcon: Icons.cloud_off_outlined,
+              fallbackTitle: 'Plans could not load',
+              fallbackMessage:
                   'Check your connection and try again. Your wallet is safe.',
-              actionLabel: 'Retry',
-              onAction: onRetry,
             ),
             data: (plans) {
               if (plans.isEmpty) {

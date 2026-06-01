@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../data/profile_repository.dart';
 
@@ -34,12 +35,12 @@ class UpiDetailsScreen extends ConsumerWidget {
       backFallbackRoute: AppRoutes.profile,
       body: accountsState.when(
         loading: () => const MGLoadingList(itemCount: 2),
-        error: (error, stackTrace) => MGFriendlyState(
-          icon: Icons.payments_outlined,
-          title: 'UPI details unavailable',
-          message: 'We could not load your UPI details. Try again.',
-          actionLabel: 'Retry',
-          onAction: () => ref.invalidate(bankAccountsProvider),
+        error: (error, stackTrace) => mgErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(bankAccountsProvider),
+          fallbackIcon: Icons.payments_outlined,
+          fallbackTitle: 'UPI details unavailable',
+          fallbackMessage: 'We could not load your UPI details. Try again.',
         ),
         data: (accounts) {
           final upiAccounts = accounts

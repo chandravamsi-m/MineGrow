@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../withdrawal/data/withdrawals_repository.dart';
 
@@ -49,13 +50,13 @@ class _WithdrawalHistoryScreenState
             const SizedBox(height: 16),
             historyState.when(
               loading: () => const MGLoadingList(),
-              error: (error, stackTrace) => MGFriendlyState(
-                icon: Icons.receipt_long_outlined,
-                title: 'Withdrawals could not load',
-                message:
+              error: (error, stackTrace) => mgErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(withdrawalsProvider),
+                fallbackIcon: Icons.receipt_long_outlined,
+                fallbackTitle: 'Withdrawals could not load',
+                fallbackMessage:
                     'Your requests are still recorded. Please retry to refresh the list.',
-                actionLabel: 'Retry',
-                onAction: () => ref.invalidate(withdrawalsProvider),
               ),
               data: (history) {
                 final filtered = _applyFilter(history);

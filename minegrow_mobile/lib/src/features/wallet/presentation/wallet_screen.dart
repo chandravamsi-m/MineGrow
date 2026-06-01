@@ -6,6 +6,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../investments/data/investments_repository.dart';
 import '../data/wallet_repository.dart';
@@ -25,13 +26,13 @@ class WalletScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         child: walletState.when(
           loading: () => const MGLoadingList(itemCount: 2),
-          error: (error, stackTrace) => MGFriendlyState(
-            icon: Icons.wallet_outlined,
-            title: 'Wallet could not load',
-            message:
+          error: (error, stackTrace) => mgErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(walletSummaryProvider),
+            fallbackIcon: Icons.wallet_outlined,
+            fallbackTitle: 'Wallet could not load',
+            fallbackMessage:
                 'Login again or check your connection to refresh wallet balances.',
-            actionLabel: 'Retry',
-            onAction: () => ref.invalidate(walletSummaryProvider),
           ),
           data: (wallet) {
             final activePlans = investmentsState.maybeWhen(

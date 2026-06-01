@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_app_utilities/flutter_app_utilities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pinput/pinput.dart';
@@ -219,7 +220,8 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       border: Border.all(color: tokens.danger, width: 1.4),
     );
 
-    return Scaffold(
+    return KeyboardDismissOnTap(
+      child: Scaffold(
       backgroundColor: tokens.background,
       resizeToAvoidBottomInset: true,
       body: Stack(
@@ -432,6 +434,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

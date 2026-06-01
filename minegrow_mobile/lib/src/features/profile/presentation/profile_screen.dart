@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_app_utilities/flutter_app_utilities.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +10,7 @@ import '../../../app/router/app_router.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../app_config/data/app_config_repository.dart';
 import '../../auth/data/auth_repository.dart';
@@ -33,13 +35,13 @@ class ProfileScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 80),
         child: profileState.when(
           loading: () => const MGLoadingList(itemCount: 3),
-          error: (error, stackTrace) => MGFriendlyState(
-            icon: Icons.person_off_outlined,
-            title: 'Profile could not load',
-            message:
+          error: (error, stackTrace) => mgErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(profileProvider),
+            fallbackIcon: Icons.person_off_outlined,
+            fallbackTitle: 'Profile could not load',
+            fallbackMessage:
                 'Login again or check your connection to refresh account details.',
-            actionLabel: 'Retry',
-            onAction: () => ref.invalidate(profileProvider),
           ),
           data: (profile) {
             final bankAccounts = bankAccountsState.maybeWhen(
@@ -115,7 +117,8 @@ class ProfileScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      IconButton(
+                      AccessibleIconButton(
+                        semanticLabel: 'Edit profile',
                         onPressed: () => _showEditDialog(context, profile),
                         icon: const Icon(Icons.edit_outlined),
                       ),
