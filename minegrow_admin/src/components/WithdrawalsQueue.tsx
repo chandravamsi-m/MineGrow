@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { useConfirm } from '../context/ConfirmContext';
 import { useToast } from '../context/ToastContext';
@@ -72,7 +72,7 @@ export const WithdrawalsQueue: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationState>(initialPagination);
 
-  const fetchWithdrawals = async () => {
+  const fetchWithdrawals = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -100,14 +100,16 @@ export const WithdrawalsQueue: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, statusFilter]);
 
   useEffect(() => {
-    fetchWithdrawals();
-    setSelectedItem(null);
-    setShowRejectForm(false);
-    setRejectReason('');
-  }, [statusFilter, page]);
+    Promise.resolve().then(() => {
+      fetchWithdrawals();
+      setSelectedItem(null);
+      setShowRejectForm(false);
+      setRejectReason('');
+    });
+  }, [fetchWithdrawals]);
 
   const approveRequest = async (id: number) => {
     confirm({

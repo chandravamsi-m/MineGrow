@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -224,7 +224,7 @@ export const Settings: React.FC = () => {
   const toast = useToast();
   const confirm = useConfirm();
 
-  const fetchConfigs = async () => {
+  const fetchConfigs = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -251,11 +251,13 @@ export const Settings: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    fetchConfigs();
-  }, []);
+    Promise.resolve().then(() => {
+      fetchConfigs();
+    });
+  }, [fetchConfigs]);
 
   const updateValue = (key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));

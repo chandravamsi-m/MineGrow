@@ -15,7 +15,7 @@ export default () => ({
   },
   adminSeedSecret: process.env.ADMIN_SEED_SECRET,
   // MED-3: Disable seed endpoint in production via env flag
-  adminSeedEnabled: process.env.ADMIN_SEED_ENABLED !== 'false',
+  adminSeedEnabled: process.env.ADMIN_SEED_ENABLED === 'true',
   // CRIT-5: CORS allowed origins (comma-separated)
   corsAllowedOrigins:
     process.env.CORS_ALLOWED_ORIGINS ||

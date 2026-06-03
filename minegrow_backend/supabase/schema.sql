@@ -300,8 +300,8 @@ BEGIN
 
       v_success_count := v_success_count + 1;
     EXCEPTION WHEN unique_violation THEN
-      -- Already credited for this investment today, skip it
-      CONTINUE;
+      -- Already credited for this investment today, skip crediting but proceed to maturity checks
+      NULL;
     END;
 
     -- 3. Check for maturity condition

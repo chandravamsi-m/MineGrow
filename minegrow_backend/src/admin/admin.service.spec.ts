@@ -90,4 +90,41 @@ describe('AdminService wallet adjustment', () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  describe('getSystemLedger mapping', () => {
+    it('correctly maps REJECT_DEPOSIT and REJECT_WITHDRAWAL events to their accurate types', async () => {
+      const mockAuditLogs = [
+        { id: 1, action: 'REJECT_DEPOSIT', metadata: { amount: 1000 }, created_at: '2026-06-03T10:00:00Z' },
+        { id: 2, action: 'REJECT_WITHDRAWAL', metadata: { amount: 2000 }, created_at: '2026-06-03T11:00:00Z' },
+      ];
+
+      const rangeMock = jest.fn().mockResolvedValue({ data: mockAuditLogs, count: 2, error: null });
+      const orderMock = jest.fn(() => ({ range: rangeMock }));
+      const selectMock = jest.fn(() => ({ order: orderMock }));
+
+      const mockSupabaseClient = {
+        from: jest.fn(() => ({
+          select: selectMock,
+        })),
+      };
+
+      const auditService = { log: jest.fn() };
+      const fcmService = { sendNotification: jest.fn() };
+      const appConfigService = { updateVal: jest.fn() };
+      const supabaseService = { getClient: jest.fn(() => mockSupabaseClient) };
+
+      const service = new AdminService(
+        supabaseService as any,
+        auditService as any,
+        fcmService as any,
+        appConfigService as any,
+      );
+
+      const result = await service.getSystemLedger(1, 10);
+      expect(result.data[0].transaction_type).toBe('rejected_deposit');
+      expect(result.data[1].transaction_type).toBe('rejected_withdrawal');
+      expect(result.data[0].description).toContain('Rejected deposit');
+      expect(result.data[1].description).toContain('Rejected withdrawal');
+    });
+  });
 });

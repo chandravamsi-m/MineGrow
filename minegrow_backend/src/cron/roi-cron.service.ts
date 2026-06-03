@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { SupabaseClientService } from '../config/supabase.client';
 import { FcmService } from '../notifications/fcm.service';
 import { AuditService } from '../audit/audit.service';
@@ -16,9 +16,9 @@ export class RoiCronService {
   ) {}
 
   /**
-   * Automated cron executor. Fired daily at midnight.
+   * Automated cron executor. Fired based on configured cron schedule.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(process.env.ROI_CRON_SCHEDULE || '0 0 * * *')
   async runDailyRoi() {
     this.logger.log(
       'Triggering scheduled daily ROI calculation and maturity cron...',

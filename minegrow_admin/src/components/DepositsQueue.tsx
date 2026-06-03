@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { useConfirm } from '../context/ConfirmContext';
 import { useToast } from '../context/ToastContext';
@@ -75,8 +75,10 @@ export const DepositsQueue: React.FC = () => {
 
   useEffect(() => {
     if (selectedItem?.payment_proof_url) {
-      setPreviewLoading(true);
-      setPreviewUrl('');
+      Promise.resolve().then(() => {
+        setPreviewLoading(true);
+        setPreviewUrl('');
+      });
       api.get<{ signedUrl: string }>(`admin/files/view?path=${encodeURIComponent(selectedItem.payment_proof_url)}&json=true`)
         .then(res => {
           if (res?.signedUrl) {
@@ -90,11 +92,13 @@ export const DepositsQueue: React.FC = () => {
           setPreviewLoading(false);
         });
     } else {
-      setPreviewUrl('');
+      Promise.resolve().then(() => {
+        setPreviewUrl('');
+      });
     }
   }, [selectedItem]);
 
-  const fetchInvestments = async () => {
+  const fetchInvestments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -122,14 +126,16 @@ export const DepositsQueue: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, statusFilter]);
 
   useEffect(() => {
-    fetchInvestments();
-    setSelectedItem(null);
-    setShowRejectForm(false);
-    setRejectReason('');
-  }, [statusFilter, page]);
+    Promise.resolve().then(() => {
+      fetchInvestments();
+      setSelectedItem(null);
+      setShowRejectForm(false);
+      setRejectReason('');
+    });
+  }, [fetchInvestments]);
 
   const approveInvestment = async (id: number) => {
     confirm({

@@ -1,4 +1,13 @@
 const configuredBaseUrl = import.meta.env.VITE_BASE_URL?.trim();
+
+if (!configuredBaseUrl && !import.meta.env.DEV) {
+  throw new Error(
+    'CRITICAL CONFIGURATION ERROR: The VITE_BASE_URL environment variable is missing or empty. ' +
+    'The production build/runtime requires VITE_BASE_URL to be defined to communicate with the backend API. ' +
+    'Please set VITE_BASE_URL in your environment or production .env file.'
+  );
+}
+
 const BASE_URL = (
   configuredBaseUrl ||
   (import.meta.env.DEV ? 'http://localhost:3000/api/v1' : '')

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -61,7 +61,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
   const toast = useToast();
   const confirm = useConfirm();
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setError(null);
       const response = await api.get<any>('admin/reports/dashboard');
@@ -76,11 +76,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    Promise.resolve().then(() => {
+      fetchStats();
+    });
+  }, [fetchStats]);
 
   const triggerDailyRoi = () => {
     confirm({

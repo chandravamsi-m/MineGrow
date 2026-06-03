@@ -551,7 +551,9 @@ export class AdminService {
         | 'deposit'
         | 'roi'
         | 'withdrawal'
-        | 'principal_return' = 'deposit';
+        | 'principal_return'
+        | 'rejected_deposit'
+        | 'rejected_withdrawal' = 'deposit';
       let description = '';
 
       const action = entry.action;
@@ -562,13 +564,13 @@ export class AdminService {
         transactionType = 'deposit';
         description = `Approved deposit request of ₹${amount.toLocaleString()}`;
       } else if (action === 'REJECT_DEPOSIT') {
-        transactionType = 'withdrawal';
+        transactionType = 'rejected_deposit';
         description = `Rejected deposit request of ₹${amount.toLocaleString()}`;
       } else if (action === 'APPROVE_WITHDRAWAL') {
         transactionType = 'withdrawal';
         description = `Approved withdrawal of ₹${amount.toLocaleString()}`;
       } else if (action === 'REJECT_WITHDRAWAL') {
-        transactionType = 'deposit';
+        transactionType = 'rejected_withdrawal';
         description = `Rejected withdrawal of ₹${amount.toLocaleString()}`;
       } else if (action === 'COMPLETE_WITHDRAWAL') {
         transactionType = 'withdrawal';
