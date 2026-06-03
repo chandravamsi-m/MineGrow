@@ -13,7 +13,7 @@ interface LedgerEntry {
   id: number;
   user_id: number;
   amount: number;
-  transaction_type: 'deposit' | 'roi' | 'withdrawal' | 'principal_return';
+  transaction_type: 'deposit' | 'roi' | 'withdrawal' | 'principal_return' | 'rejected_deposit' | 'rejected_withdrawal';
   description: string;
   reference_id?: number | null;
   created_at: string;
@@ -107,6 +107,7 @@ export const LedgerViewer: React.FC = () => {
             entries.map((entry) => {
               const isZeroAmount = Number(entry.amount) === 0;
               const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
+              const isNeutral = ['rejected_deposit', 'rejected_withdrawal'].includes(entry.transaction_type);
               return (
                 <div key={entry.id} className="p-4 space-y-3 hover:bg-slate-900/10 transition-colors">
                   <div className="flex justify-between items-center">
@@ -140,13 +141,13 @@ export const LedgerViewer: React.FC = () => {
                   <div className="flex justify-between items-center pt-2 border-t border-slate-800/40">
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Audited Amount</span>
                     <span className={`font-bold text-base flex items-center ${
-                      isZeroAmount
+                      isZeroAmount || isNeutral
                         ? 'text-slate-400'
                         : isCredit
                         ? 'text-emerald-400'
                         : 'text-rose-400'
                     }`}>
-                      {!isZeroAmount && (
+                      {!(isZeroAmount || isNeutral) && (
                         isCredit ? (
                           <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
                         ) : (
@@ -197,6 +198,7 @@ export const LedgerViewer: React.FC = () => {
                 entries.map((entry) => {
                   const isZeroAmount = Number(entry.amount) === 0;
                   const isCredit = ['deposit', 'roi', 'principal_return'].includes(entry.transaction_type);
+                  const isNeutral = ['rejected_deposit', 'rejected_withdrawal'].includes(entry.transaction_type);
                   
                   return (
                     <tr key={entry.id} className="hover:bg-slate-900/30 transition-colors duration-250 h-16 align-middle">
@@ -231,14 +233,14 @@ export const LedgerViewer: React.FC = () => {
                         </span>
                       </td>
                       <td className={`p-4 pr-6 text-right font-bold text-base whitespace-nowrap ${
-                        isZeroAmount
+                        isZeroAmount || isNeutral
                           ? 'text-slate-400'
                           : isCredit
                           ? 'text-emerald-400'
                           : 'text-rose-400'
                       }`}>
                         <div className="flex items-center justify-end">
-                          {!isZeroAmount && (
+                          {!(isZeroAmount || isNeutral) && (
                             isCredit ? (
                               <ArrowDownLeft className="w-4 h-4 mr-0.5 text-emerald-500" />
                             ) : (
