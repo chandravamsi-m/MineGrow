@@ -324,7 +324,7 @@ export class InvestmentsService {
     maturityDate.setDate(startDate.getDate() + investment.lock_days);
     const maturityStr = getISTDateString(maturityDate);
 
-    // 3. Update status to active
+    // 3. Update status to active only if it is still pending
     const { data: approved, error: updateError } = await supabase
       .from('investments')
       .update({
@@ -334,13 +334,20 @@ export class InvestmentsService {
         updated_at: getISTDateTimeString(),
       })
       .eq('id', id)
+      .eq('status', 'pending')
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (updateError || !approved) {
+    if (updateError) {
       this.logger.error('Failed to approve investment:', updateError);
       throw new InternalServerErrorException(
         'Error completing deposit approval process',
+      );
+    }
+
+    if (!approved) {
+      throw new BadRequestException(
+        'Investment request has already been processed by another administrator',
       );
     }
 
@@ -390,7 +397,7 @@ export class InvestmentsService {
       );
     }
 
-    // 2. Reject
+    // 2. Reject only if it is still pending
     const { data: rejected, error: updateError } = await supabase
       .from('investments')
       .update({
@@ -399,13 +406,20 @@ export class InvestmentsService {
         updated_at: getISTDateTimeString(),
       })
       .eq('id', id)
+      .eq('status', 'pending')
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (updateError || !rejected) {
+    if (updateError) {
       this.logger.error('Failed to reject investment:', updateError);
       throw new InternalServerErrorException(
         'Error completing deposit rejection process',
+      );
+    }
+
+    if (!rejected) {
+      throw new BadRequestException(
+        'Investment request has already been processed by another administrator',
       );
     }
 
