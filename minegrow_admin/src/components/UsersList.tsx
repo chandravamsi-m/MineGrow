@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -145,8 +145,10 @@ export const UsersList: React.FC = () => {
 
   useEffect(() => {
     if (selectedUser?.kyc_document_url) {
-      setPreviewLoading(true);
-      setPreviewUrl('');
+      Promise.resolve().then(() => {
+        setPreviewLoading(true);
+        setPreviewUrl('');
+      });
       api.get<{ signedUrl: string }>(`admin/files/view?path=${encodeURIComponent(selectedUser.kyc_document_url)}&json=true`)
         .then(res => {
           if (res?.signedUrl) {
@@ -160,11 +162,13 @@ export const UsersList: React.FC = () => {
           setPreviewLoading(false);
         });
     } else {
-      setPreviewUrl('');
+      Promise.resolve().then(() => {
+        setPreviewUrl('');
+      });
     }
   }, [selectedUser]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -193,14 +197,14 @@ export const UsersList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchUsers();
     }, 300); // Debounce search
     return () => clearTimeout(timer);
-  }, [search, statusFilter, page]);
+  }, [fetchUsers]);
 
   const viewUserDetail = async (userId: number) => {
     setDetailsLoading(true);

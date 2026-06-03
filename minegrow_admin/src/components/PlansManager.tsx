@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
@@ -43,7 +43,7 @@ export const PlansManager: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const fetchPlans = async () => {
+  const fetchPlans = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -58,11 +58,13 @@ export const PlansManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchPlans();
-  }, []);
+    Promise.resolve().then(() => {
+      fetchPlans();
+    });
+  }, [fetchPlans]);
 
   const handleStartEdit = (plan: InvestmentPlan) => {
     setEditingPlan(plan);

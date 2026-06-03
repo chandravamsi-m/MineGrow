@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import {
   ArrowUpRight,
@@ -34,7 +34,7 @@ export const LedgerViewer: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const limit = 5;
 
-  const fetchLedger = async () => {
+  const fetchLedger = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -54,11 +54,13 @@ export const LedgerViewer: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
-    fetchLedger();
-  }, [page]);
+    Promise.resolve().then(() => {
+      fetchLedger();
+    });
+  }, [fetchLedger]);
 
   const totalPages = Math.ceil(totalCount / limit) || 1;
 
