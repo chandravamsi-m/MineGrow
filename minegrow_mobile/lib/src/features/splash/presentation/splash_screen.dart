@@ -15,7 +15,9 @@ import '../../../shared/widgets/mg_widgets.dart';
 import '../../app_config/data/app_config_repository.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.navigateOnStart = true});
+
+  final bool navigateOnStart;
 
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
@@ -25,7 +27,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuthAndNavigate();
+    if (widget.navigateOnStart) {
+      _checkAuthAndNavigate();
+    }
   }
 
   Future<void> _warmUpBackend() async {
@@ -133,7 +137,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   color: context.tokens.textSecondary,
                 ),
               ),
-               Spacer(flex: 4),
+              Spacer(flex: 4),
 
               const SizedBox(height: 28),
               ClipRRect(

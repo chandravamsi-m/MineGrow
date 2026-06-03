@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minegrow/src/features/profile/data/profile_repository.dart';
 import 'package:minegrow/src/shared/data/app_models.dart';
+import 'package:minegrow/src/shared/utils/upi_validator.dart';
 
 void main() {
   test('buildKycUploadFormData uses expected multipart fields', () {
@@ -9,7 +10,14 @@ void main() {
 
     final formData = buildKycUploadFormData(docType: 'aadhaar', file: file);
 
-    expect(formData.fields, contains(const MapEntry('docType', 'aadhaar')));
+    expect(
+      formData.fields,
+      contains(
+        isA<MapEntry<String, String>>()
+            .having((entry) => entry.key, 'key', 'docType')
+            .having((entry) => entry.value, 'value', 'aadhaar'),
+      ),
+    );
     expect(formData.files.single.key, 'file');
     expect(formData.files.single.value.filename, 'aadhaar.pdf');
   });
@@ -55,10 +63,22 @@ void main() {
       'upi_id': 'client@oksbi',
     });
 
-    expect(upiAccountPayload(upiId: 'client@oksbi', accountHolder: '  Client  '), {
-      'account_type': 'upi',
-      'upi_id': 'client@oksbi',
-      'account_holder': 'Client',
-    });
+    expect(
+      upiAccountPayload(upiId: 'client@oksbi', accountHolder: '  Client  '),
+      {
+        'account_type': 'upi',
+        'upi_id': 'client@oksbi',
+        'account_holder': 'Client',
+      },
+    );
+  });
+
+  test('UPI IDs are normalized and validated consistently', () {
+    expect(normalizeUpiId('  Client.Name@OKSBI  '), 'client.name@oksbi');
+    expect(isValidUpiId('client@oksbi'), isTrue);
+    expect(isValidUpiId('client.name-1@okhdfcbank'), isTrue);
+    expect(isValidUpiId('client'), isFalse);
+    expect(isValidUpiId('client@'), isFalse);
+    expect(isValidUpiId('c@oksbi'), isFalse);
   });
 }

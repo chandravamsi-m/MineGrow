@@ -11,9 +11,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/utils/upi_validator.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../app_config/data/app_config_repository.dart';
 import '../../wallet/data/wallet_repository.dart';
@@ -92,6 +92,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     });
 
     try {
+      final paymentConfig = await ref.read(paymentAppConfigProvider.future);
+      if (!paymentConfig.hasValidPaymentUpiId) {
+        throw const ApiException(
+          message: 'Payment account is not configured. Please try again later.',
+        );
+      }
+
       final MultipartFile proof;
       if (kIsWeb) {
         final bytes = _proofFile!.bytes;
@@ -142,15 +149,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final plan = widget.args.plan;
     final amount = widget.args.amount;
 
-    // UPI ID is fetched from the backend; falls back to env-var if unavailable.
-    final configState = ref.watch(appConfigProvider);
-    final upiId = configState.maybeWhen(
-      data: (c) => c.paymentUpiId,
-      orElse: () => AppConfig.paymentUpiId,
+    final paymentConfigState = ref.watch(paymentAppConfigProvider);
+    final paymentReady = paymentConfigState.maybeWhen(
+      data: (config) => config.hasValidPaymentUpiId,
+      orElse: () => false,
     );
-    final upiDeepLink =
-        'upi://pay?pa=$upiId&pn=MineGrow&am=${amount.toStringAsFixed(2)}'
-        '&cu=INR&tn=MineGrow+Investment';
 
     return MGScaffold(
       appBar: AppBar(
@@ -168,13 +171,38 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         children: [
           _OrderSummaryCard(plan: plan, amount: amount),
           const SizedBox(height: 24),
-          Text('Scan & Pay', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-          _QRPaymentCard(
-            upiDeepLink: upiDeepLink,
-            upiId: upiId,
-            amount: amount,
-            onOpenUpiApp: () => _openUpiApp(upiDeepLink),
+          paymentConfigState.when(
+            loading: () => const _PaymentConfigLoadingCard(),
+            error: (error, stackTrace) => _PaymentConfigUnavailableCard(
+              onRetry: () => ref.invalidate(paymentAppConfigProvider),
+            ),
+            data: (config) {
+              final upiId = normalizeUpiId(config.paymentUpiId);
+              if (!isValidUpiId(upiId)) {
+                return _PaymentConfigUnavailableCard(
+                  message:
+                      'Payment account is not configured. Please try again later.',
+                  onRetry: () => ref.invalidate(paymentAppConfigProvider),
+                );
+              }
+              final upiDeepLink = _buildUpiDeepLink(upiId, amount);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Scan & Pay',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  _QRPaymentCard(
+                    upiDeepLink: upiDeepLink,
+                    upiId: upiId,
+                    amount: amount,
+                    onOpenUpiApp: () => _openUpiApp(upiDeepLink),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
           MGTextField(
@@ -208,7 +236,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           const SizedBox(height: 28),
           MGGradientButton(
             label: _isSubmitting ? 'Submitting...' : "I've Paid – Confirm",
-            onPressed: _isSubmitting ? null : _submit,
+            onPressed: (_isSubmitting || !paymentReady) ? null : _submit,
           ),
           const SizedBox(height: 12),
           Center(
@@ -227,6 +255,74 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 }
 
 // ── Order Summary ────────────────────────────────────────────────────────────
+
+String _buildUpiDeepLink(String upiId, num amount) {
+  return Uri(
+    scheme: 'upi',
+    host: 'pay',
+    queryParameters: {
+      'pa': upiId,
+      'pn': 'MineGrow',
+      'am': amount.toStringAsFixed(2),
+      'cu': 'INR',
+      'tn': 'MineGrow Investment',
+    },
+  ).toString();
+}
+
+class _PaymentConfigLoadingCard extends StatelessWidget {
+  const _PaymentConfigLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return MGCard(
+      child: Row(
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: context.tokens.brandGold,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Loading payment details...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentConfigUnavailableCard extends StatelessWidget {
+  const _PaymentConfigUnavailableCard({
+    required this.onRetry,
+    this.message =
+        'Could not load payment account details. Check your connection and retry.',
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return MGFriendlyState(
+      icon: Icons.account_balance_wallet_outlined,
+      title: 'Payment details unavailable',
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
+      compact: true,
+    );
+  }
+}
 
 class _OrderSummaryCard extends StatelessWidget {
   const _OrderSummaryCard({required this.plan, required this.amount});

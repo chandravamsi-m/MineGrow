@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/utils/upi_validator.dart';
 import '../../../shared/widgets/mg_error_view.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../data/profile_repository.dart';
@@ -289,12 +290,10 @@ class _AddUpiSheetState extends ConsumerState<_AddUpiSheet> {
   }
 
   Future<void> _submit() async {
-    final upiId = _upiCtrl.text.trim();
+    final upiId = normalizeUpiId(_upiCtrl.text);
     final holder = _holderCtrl.text.trim();
 
-    // Basic UPI validation: anything@word (covers vpa@bankname format)
-    final upiRegex = RegExp(r'^[\w.\-]+@[a-zA-Z]+$');
-    if (upiId.isEmpty || !upiRegex.hasMatch(upiId)) {
+    if (!isValidUpiId(upiId)) {
       _setError('Enter a valid UPI ID (e.g. yourname@oksbi).');
       return;
     }

@@ -6,6 +6,7 @@ import '../../../app/router/app_routes.dart';
 import '../../../app/theme/minegrow_tokens.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/data/app_models.dart';
+import '../../../shared/utils/upi_validator.dart';
 import '../../../shared/widgets/mg_widgets.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/withdrawals_repository.dart';
@@ -40,7 +41,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
 
   Future<void> _requestWithdrawal(num balance) async {
     final amount = num.tryParse(_amountController.text.trim());
-    final upi = _upiController.text.trim();
+    final upi = normalizeUpiId(_upiController.text);
 
     setState(() {
       if (amount == null || amount <= 0) {
@@ -51,8 +52,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
         _errorText = 'Amount exceeds your available balance.';
         return;
       }
-      if (_method == WithdrawalMethod.upi && upi.isEmpty) {
-        _errorText = 'Enter your UPI ID to proceed.';
+      if (_method == WithdrawalMethod.upi && !isValidUpiId(upi)) {
+        _errorText = 'Enter a valid UPI ID, for example yourname@oksbi.';
         return;
       }
       if (_method == WithdrawalMethod.bank && _selectedBankAccountId == null) {
