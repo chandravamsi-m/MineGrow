@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../shared/utils/upi_validator.dart';
 
 // ── Remote App Config model ───────────────────────────────────────────────────
 
@@ -20,7 +21,6 @@ class RemoteAppConfig {
   });
 
   /// UPI ID to show on the payment screen QR code / deep-link.
-  /// Falls back to [AppConfig.paymentUpiId] when the API is unreachable.
   final String paymentUpiId;
   final String supportEmail;
   final String supportPhone;
@@ -40,49 +40,55 @@ class RemoteAppConfig {
   /// Store URL opened by the force-update screen's primary action.
   final String? updateUrl;
 
+  bool get hasValidPaymentUpiId => isValidUpiId(paymentUpiId);
+
   factory RemoteAppConfig.fallback() => RemoteAppConfig(
-        paymentUpiId: AppConfig.paymentUpiId,
-        supportEmail: 'support@minegrow.app',
-        supportPhone: '+91 90000 00000',
-        termsUrl: 'https://minegrow.app/terms',
-        privacyUrl: 'https://minegrow.app/privacy',
-        riskDisclosure:
-            'Mining investment returns depend on active plan terms, approved deposits, and wallet eligibility rules.',
-      );
+    paymentUpiId: AppConfig.paymentUpiId,
+    supportEmail: 'support@minegrow.app',
+    supportPhone: '+91 90000 00000',
+    termsUrl: 'https://minegrow.app/terms',
+    privacyUrl: 'https://minegrow.app/privacy',
+    riskDisclosure:
+        'Mining investment returns depend on active plan terms, approved deposits, and wallet eligibility rules.',
+  );
 
   factory RemoteAppConfig.fromJson(Object? json) {
     final map = (json as Map?)?.cast<String, dynamic>() ?? {};
-    final fallback = RemoteAppConfig.fallback();
     return RemoteAppConfig(
-      paymentUpiId: map['payment_upi_id']?.toString() ??
-          map['paymentUpiId']?.toString() ??
-          AppConfig.paymentUpiId,
-      supportEmail: map['support_email']?.toString() ??
+      paymentUpiId: normalizeUpiId(
+        map['payment_upi_id']?.toString() ??
+            map['paymentUpiId']?.toString() ??
+            AppConfig.paymentUpiId,
+      ),
+      supportEmail:
+          map['support_email']?.toString() ??
           map['supportEmail']?.toString() ??
-          fallback.supportEmail,
-      supportPhone: map['support_phone']?.toString() ??
+          'support@minegrow.app',
+      supportPhone:
+          map['support_phone']?.toString() ??
           map['supportPhone']?.toString() ??
-          fallback.supportPhone,
-      termsUrl: map['terms_url']?.toString() ??
+          '+91 90000 00000',
+      termsUrl:
+          map['terms_url']?.toString() ??
           map['termsUrl']?.toString() ??
-          fallback.termsUrl,
-      privacyUrl: map['privacy_url']?.toString() ??
+          'https://minegrow.app/terms',
+      privacyUrl:
+          map['privacy_url']?.toString() ??
           map['privacyUrl']?.toString() ??
-          fallback.privacyUrl,
-      riskDisclosure: map['risk_disclosure']?.toString() ??
+          'https://minegrow.app/privacy',
+      riskDisclosure:
+          map['risk_disclosure']?.toString() ??
           map['riskDisclosure']?.toString() ??
-          fallback.riskDisclosure,
+          'Mining investment returns depend on active plan terms, approved deposits, and wallet eligibility rules.',
       maintenanceMode: _boolValue(
         map['maintenance_mode'] ?? map['maintenanceMode'],
       ),
-      maintenanceMessage: (map['maintenance_message'] ??
-              map['maintenanceMessage'])
-          ?.toString(),
-      minSupportedVersion: (map['min_supported_version'] ??
-              map['minSupportedVersion'])
-          ?.toString(),
-      updateUrl:
-          (map['update_url'] ?? map['updateUrl'])?.toString(),
+      maintenanceMessage:
+          (map['maintenance_message'] ?? map['maintenanceMessage'])?.toString(),
+      minSupportedVersion:
+          (map['min_supported_version'] ?? map['minSupportedVersion'])
+              ?.toString(),
+      updateUrl: (map['update_url'] ?? map['updateUrl'])?.toString(),
     );
   }
 
@@ -109,6 +115,12 @@ final appConfigProvider = FutureProvider<RemoteAppConfig>((ref) {
   return ref.watch(appConfigRepositoryProvider).fetchConfig();
 });
 
+/// Payment screens fail closed: do not generate a QR from env defaults when
+/// the backend payment account cannot be loaded.
+final paymentAppConfigProvider = FutureProvider<RemoteAppConfig>((ref) {
+  return ref.watch(appConfigRepositoryProvider).fetchRemoteConfig();
+});
+
 // ── Repository ────────────────────────────────────────────────────────────────
 
 class AppConfigRepository {
@@ -116,12 +128,16 @@ class AppConfigRepository {
 
   final ApiClient _apiClient;
 
+  Future<RemoteAppConfig> fetchRemoteConfig() {
+    return _apiClient.getData<RemoteAppConfig>(
+      '/app/config',
+      parser: RemoteAppConfig.fromJson,
+    );
+  }
+
   Future<RemoteAppConfig> fetchConfig() async {
     try {
-      return await _apiClient.getData<RemoteAppConfig>(
-        '/app/config',
-        parser: RemoteAppConfig.fromJson,
-      );
+      return await fetchRemoteConfig();
     } catch (_) {
       // Network error or endpoint not yet implemented — use env fallback.
       return RemoteAppConfig.fallback();

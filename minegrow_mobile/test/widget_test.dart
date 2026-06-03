@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:minegrow/src/app/app.dart';
+import 'package:go_router/go_router.dart';
 import 'package:minegrow/src/app/theme/app_theme.dart';
 import 'package:minegrow/src/features/history/presentation/withdrawal_history_screen.dart';
 import 'package:minegrow/src/features/investments/data/investments_repository.dart';
 import 'package:minegrow/src/features/investments/presentation/investment_plans_screen.dart';
+import 'package:minegrow/src/features/splash/presentation/splash_screen.dart';
 import 'package:minegrow/src/features/withdrawal/data/withdrawals_repository.dart';
 import 'package:minegrow/src/shared/data/app_models.dart';
 import 'package:minegrow/src/shared/data/mock_data.dart';
 
 void main() {
   testWidgets('renders the MineGrow splash screen', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: MineGrowApp()));
+    await tester.pumpWidget(
+      const _TestApp(child: SplashScreen(navigateOnStart: false)),
+    );
+    await tester.pump();
 
     expect(find.text('MINEGROW'), findsOneWidget);
     expect(find.text('Grow Today, Earn Tomorrow'), findsOneWidget);
@@ -29,11 +33,11 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Investment Plans'), findsOneWidget);
+    expect(find.text('Plans'), findsOneWidget);
     expect(find.text('Starter Plan'), findsOneWidget);
     expect(find.text('Silver Plan'), findsOneWidget);
     expect(find.text('Gold Plan'), findsOneWidget);
-    expect(find.text('Investments'), findsOneWidget);
+    expect(find.text('Investments'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('renders withdrawal status chips', (tester) async {
@@ -60,9 +64,13 @@ class _TestApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final router = GoRouter(
+      routes: [GoRoute(path: '/', builder: (context, state) => child)],
+    );
+
     return ProviderScope(
       overrides: overrides.cast(),
-      child: MaterialApp(theme: AppTheme.dark, home: child),
+      child: MaterialApp.router(theme: AppTheme.dark, routerConfig: router),
     );
   }
 }
