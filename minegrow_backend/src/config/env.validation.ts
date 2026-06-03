@@ -24,5 +24,5 @@ export const envValidationSchema = Joi.object({
   // CRIT-5: Comma-separated list of allowed CORS origins
   CORS_ALLOWED_ORIGINS: Joi.string().optional(),
   // MED-3: Set to 'false' in production to disable the admin seed endpoint
-  ADMIN_SEED_ENABLED: Joi.string().valid('true', 'false').default('true'),
+  ADMIN_SEED_ENABLED: Joi.string().valid('true', 'false').default('false'),
 });
