@@ -17,8 +17,45 @@ export class UploadsService {
   ) {}
 
   /**
+   * Validates file magic bytes (signatures) to verify the file type.
+   */
+  private checkFileSignature(buffer: Buffer): 'jpg' | 'png' | 'pdf' | null {
+    if (!buffer || buffer.length < 4) {
+      return null;
+    }
+    // PNG: 89 50 4E 47
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4E &&
+      buffer[3] === 0x47
+    ) {
+      return 'png';
+    }
+    // JPEG/JPG: FF D8 FF
+    if (
+      buffer[0] === 0xFF &&
+      buffer[1] === 0xD8 &&
+      buffer[2] === 0xFF
+    ) {
+      return 'jpg';
+    }
+    // PDF: 25 50 44 46 (%PDF)
+    if (
+      buffer[0] === 0x25 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x44 &&
+      buffer[3] === 0x46
+    ) {
+      return 'pdf';
+    }
+    return null;
+  }
+
+  /**
    * Uploads a file (KYC scan or Payment Proof) directly to private Supabase Storage.
    * Enforces 10MB limits for payment screenshots and 5MB limits for KYC documents.
+   * Validates file signatures strictly (magic bytes) to prevent disguised uploads.
    */
   async uploadFile(
     userId: number,
@@ -28,16 +65,15 @@ export class UploadsService {
   ): Promise<string> {
     const supabase = this.supabaseService.getClient();
 
-    // 1. Validate Mimetypes
-    const allowedMimeTypes = [
-      'image/jpeg',
-      'image/png',
-      'application/pdf',
-      'image/jpg',
-    ];
-    if (!allowedMimeTypes.includes(file.mimetype.toLowerCase())) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Invalid file payload');
+    }
+
+    // 1. Validate File Signature (Magic Bytes)
+    const detectedExt = this.checkFileSignature(file.buffer);
+    if (!detectedExt) {
       throw new BadRequestException(
-        'Unsupported file format. Only JPEG, PNG, and PDF files are allowed',
+        'Invalid or unsupported file format. Only true JPEG, PNG, and PDF files are allowed',
       );
     }
 
@@ -53,12 +89,15 @@ export class UploadsService {
 
     // 3. Generate unique path: {bucket_name}/{bucket_prefix}/{user_id}/{uniquePrefix}_{timestamp}.{ext}
     const timestamp = Date.now();
-    const originalExt = file.originalname.split('.').pop() || 'jpg';
-    const cleanExt = originalExt.toLowerCase();
-    const fileBase = uniquePrefix
-      ? `${uniquePrefix}_${timestamp}`
+    const cleanPrefix = uniquePrefix
+      ? uniquePrefix.replace(/[^a-zA-Z0-9_-]/g, '')
+      : '';
+    const fileBase = cleanPrefix
+      ? `${cleanPrefix}_${timestamp}`
       : `file_${timestamp}`;
-    const filePath = `${bucket}/${userId}/${fileBase}.${cleanExt}`;
+    
+    // filePath prefix structure matches allowed bucket routing
+    const filePath = `${bucket}/${userId}/${fileBase}.${detectedExt}`;
 
     // 4. Perform upload to Supabase bucket
     const rootBucketName =
